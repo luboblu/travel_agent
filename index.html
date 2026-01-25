@@ -128,6 +128,18 @@
                 </svg>
             );
 
+            const RefreshCw = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            );
+
+            const ArrowsUpDown = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+            );
+
             // 登入頁面
             function LoginPage({ onLogin }) {
                 const [username, setUsername] = useState('');
@@ -267,9 +279,14 @@
 
                 // 記帳表單
                 const [showPersonalExpenseForm, setShowPersonalExpenseForm] = useState(false);
-                const [exchangeRate, setExchangeRate] = useState(0.22);
+                // 匯率相關 state
+                const [exchangeRates, setExchangeRates] = useState({});
                 const [lastUpdated, setLastUpdated] = useState('');
                 const [isRateLoading, setIsRateLoading] = useState(false);
+                const [fromCurrency, setFromCurrency] = useState('TWD');
+                const [toCurrency, setToCurrency] = useState('JPY');
+                const [fromAmount, setFromAmount] = useState('');
+                const [toAmount, setToAmount] = useState('');
 
                 // 初始化測試帳號
                 useEffect(() => {
@@ -352,16 +369,29 @@
                 useEffect(() => {
                     if (activeTab === 'currency') {
                         setIsRateLoading(true);
-                        fetch('https://api.exchangerate-api.com/v4/latest/JPY')
+                        // 使用 TWD 為基準貨幣獲取所有匯率
+                        fetch('https://api.exchangerate-api.com/v4/latest/TWD')
                             .then(res => res.json())
                             .then(data => {
-                                const rate = data.rates.TWD;
-                                setExchangeRate(rate);
+                                setExchangeRates(data.rates);
                                 setLastUpdated(new Date(data.time_last_updated * 1000).toLocaleDateString());
                                 setIsRateLoading(false);
                             })
                             .catch(err => {
                                 console.error("匯率抓取失敗，使用預設值", err);
+                                // 預設匯率（以 TWD 為基準）
+                                setExchangeRates({
+                                    TWD: 1,
+                                    USD: 0.032,
+                                    EUR: 0.030,
+                                    JPY: 4.5,
+                                    KRW: 43,
+                                    CNY: 0.23,
+                                    HKD: 0.25,
+                                    SGD: 0.043,
+                                    GBP: 0.025,
+                                    AUD: 0.049
+                                });
                                 setIsRateLoading(false);
                             });
                     }
@@ -827,50 +857,162 @@
                             {/* 匯率換算 */}
                             {activeTab === 'currency' && (
                                 <div className="bg-white rounded-2xl shadow-lg p-8">
-                                    <div className="max-w-md mx-auto">
+                                    <div className="max-w-2xl mx-auto">
                                         <div className="text-center mb-8">
-                                            <h2 className="text-3xl font-bold text-gray-800 mb-2">💱 匯率換算</h2>
-                                            <p className="text-gray-600">JPY ⇄ TWD</p>
+                                            <h2 className="text-3xl font-bold text-gray-800 mb-2">💱 多國匯率換算</h2>
+                                            <p className="text-gray-600">支援全球主要貨幣即時匯率</p>
                                         </div>
 
-                                        <div className="mb-6">
-                                            <label className="block text-sm text-gray-600 mb-2">日幣金額 (JPY)</label>
-                                            <input
-                                                type="number"
-                                                placeholder="輸入日幣..."
-                                                className="w-full px-4 py-4 border-2 border-gray-300 rounded-lg text-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                onChange={(e) => {
-                                                    const twd = e.target.value ? (parseFloat(e.target.value) * exchangeRate).toFixed(0) : '';
-                                                    document.getElementById('twdInput').innerText = twd ? `NT$ ${parseFloat(twd).toLocaleString()}` : 'NT$ 0';
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="text-center py-4">
-                                            <div className="inline-flex flex-col items-center gap-1 bg-blue-50 px-6 py-3 rounded-2xl">
-                                                <div className="flex items-center gap-2">
-                                                    {isRateLoading ? (
-                                                        <span className="text-blue-600">更新中...</span>
-                                                    ) : (
-                                                        <span className="text-blue-600 font-bold text-lg">
-                                                            即時匯率: {exchangeRate}
-                                                        </span>
-                                                    )}
+                                        {/* 貨幣選擇和輸入區域 */}
+                                        <div className="space-y-6">
+                                            {/* 來源貨幣 */}
+                                            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
+                                                <label className="block text-sm font-semibold text-gray-700 mb-3">從</label>
+                                                <div className="flex gap-4">
+                                                    <select
+                                                        value={fromCurrency}
+                                                        onChange={(e) => {
+                                                            setFromCurrency(e.target.value);
+                                                            if (fromAmount) {
+                                                                const rate = exchangeRates[toCurrency] / exchangeRates[e.target.value];
+                                                                setToAmount((parseFloat(fromAmount) * rate).toFixed(2));
+                                                            }
+                                                        }}
+                                                        className="px-4 py-3 border-2 border-gray-300 rounded-lg text-lg font-semibold bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    >
+                                                        <option value="TWD">🇹🇼 台幣 (TWD)</option>
+                                                        <option value="USD">🇺🇸 美元 (USD)</option>
+                                                        <option value="JPY">🇯🇵 日圓 (JPY)</option>
+                                                        <option value="EUR">🇪🇺 歐元 (EUR)</option>
+                                                        <option value="GBP">🇬🇧 英鎊 (GBP)</option>
+                                                        <option value="KRW">🇰🇷 韓元 (KRW)</option>
+                                                        <option value="CNY">🇨🇳 人民幣 (CNY)</option>
+                                                        <option value="HKD">🇭🇰 港幣 (HKD)</option>
+                                                        <option value="SGD">🇸🇬 新加坡幣 (SGD)</option>
+                                                        <option value="AUD">🇦🇺 澳幣 (AUD)</option>
+                                                        <option value="CAD">🇨🇦 加幣 (CAD)</option>
+                                                        <option value="CHF">🇨🇭 瑞士法郎 (CHF)</option>
+                                                        <option value="THB">🇹🇭 泰銖 (THB)</option>
+                                                        <option value="MYR">🇲🇾 馬來幣 (MYR)</option>
+                                                        <option value="PHP">🇵🇭 菲律賓披索 (PHP)</option>
+                                                        <option value="VND">🇻🇳 越南盾 (VND)</option>
+                                                    </select>
+                                                    <input
+                                                        type="number"
+                                                        value={fromAmount}
+                                                        onChange={(e) => {
+                                                            setFromAmount(e.target.value);
+                                                            if (e.target.value && exchangeRates[fromCurrency] && exchangeRates[toCurrency]) {
+                                                                const rate = exchangeRates[toCurrency] / exchangeRates[fromCurrency];
+                                                                setToAmount((parseFloat(e.target.value) * rate).toFixed(2));
+                                                            } else {
+                                                                setToAmount('');
+                                                            }
+                                                        }}
+                                                        placeholder="輸入金額..."
+                                                        className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    />
                                                 </div>
-                                                {lastUpdated && (
-                                                    <span className="text-xs text-blue-400">
-                                                        更新日期: {lastUpdated}
-                                                    </span>
+                                            </div>
+
+                                            {/* 交換按鈕 */}
+                                            <div className="flex justify-center">
+                                                <button
+                                                    onClick={() => {
+                                                        // 交換貨幣
+                                                        const tempCurrency = fromCurrency;
+                                                        setFromCurrency(toCurrency);
+                                                        setToCurrency(tempCurrency);
+                                                        
+                                                        // 交換金額
+                                                        setFromAmount(toAmount);
+                                                        setToAmount(fromAmount);
+                                                    }}
+                                                    className="p-4 bg-white border-2 border-blue-300 rounded-full hover:bg-blue-50 hover:border-blue-500 transition-all shadow-md hover:shadow-lg"
+                                                >
+                                                    <ArrowsUpDown className="w-6 h-6 text-blue-600" />
+                                                </button>
+                                            </div>
+
+                                            {/* 目標貨幣 */}
+                                            <div className="bg-gradient-to-r from-green-50 to-teal-50 rounded-xl p-6">
+                                                <label className="block text-sm font-semibold text-gray-700 mb-3">到</label>
+                                                <div className="flex gap-4">
+                                                    <select
+                                                        value={toCurrency}
+                                                        onChange={(e) => {
+                                                            setToCurrency(e.target.value);
+                                                            if (fromAmount) {
+                                                                const rate = exchangeRates[e.target.value] / exchangeRates[fromCurrency];
+                                                                setToAmount((parseFloat(fromAmount) * rate).toFixed(2));
+                                                            }
+                                                        }}
+                                                        className="px-4 py-3 border-2 border-gray-300 rounded-lg text-lg font-semibold bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                    >
+                                                        <option value="JPY">🇯🇵 日圓 (JPY)</option>
+                                                        <option value="TWD">🇹🇼 台幣 (TWD)</option>
+                                                        <option value="USD">🇺🇸 美元 (USD)</option>
+                                                        <option value="EUR">🇪🇺 歐元 (EUR)</option>
+                                                        <option value="GBP">🇬🇧 英鎊 (GBP)</option>
+                                                        <option value="KRW">🇰🇷 韓元 (KRW)</option>
+                                                        <option value="CNY">🇨🇳 人民幣 (CNY)</option>
+                                                        <option value="HKD">🇭🇰 港幣 (HKD)</option>
+                                                        <option value="SGD">🇸🇬 新加坡幣 (SGD)</option>
+                                                        <option value="AUD">🇦🇺 澳幣 (AUD)</option>
+                                                        <option value="CAD">🇨🇦 加幣 (CAD)</option>
+                                                        <option value="CHF">🇨🇭 瑞士法郎 (CHF)</option>
+                                                        <option value="THB">🇹🇭 泰銖 (THB)</option>
+                                                        <option value="MYR">🇲🇾 馬來幣 (MYR)</option>
+                                                        <option value="PHP">🇵🇭 菲律賓披索 (PHP)</option>
+                                                        <option value="VND">🇻🇳 越南盾 (VND)</option>
+                                                    </select>
+                                                    <div className="flex-1 px-4 py-3 bg-white border-2 border-dashed border-gray-300 rounded-lg text-xl font-bold text-gray-800 flex items-center justify-center">
+                                                        {toAmount || '0'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* 匯率資訊 */}
+                                        <div className="mt-8 text-center">
+                                            <div className="inline-flex flex-col items-center gap-2 bg-gradient-to-r from-yellow-50 to-orange-50 px-8 py-4 rounded-2xl border-2 border-yellow-200">
+                                                {isRateLoading ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <RefreshCw className="w-5 h-5 text-orange-600 animate-spin" />
+                                                        <span className="text-orange-600 font-semibold">更新中...</span>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="text-sm text-gray-600">即時匯率</div>
+                                                        <div className="text-2xl font-bold text-gray-800">
+                                                            1 {fromCurrency} = {exchangeRates[toCurrency] && exchangeRates[fromCurrency] 
+                                                                ? (exchangeRates[toCurrency] / exchangeRates[fromCurrency]).toFixed(4)
+                                                                : '...'} {toCurrency}
+                                                        </div>
+                                                        {lastUpdated && (
+                                                            <div className="text-xs text-gray-500">
+                                                                更新時間: {lastUpdated}
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <label className="block text-sm text-gray-600 mb-2">約合台幣</label>
-                                            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                                                <div className="text-4xl font-bold text-gray-800" id="twdInput">
-                                                    NT$ 0
-                                                </div>
+                                        {/* 常用貨幣快速參考 */}
+                                        <div className="mt-8 bg-gray-50 rounded-xl p-6">
+                                            <h3 className="text-lg font-bold text-gray-800 mb-4">💡 常用匯率參考</h3>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                {['USD', 'JPY', 'EUR', 'CNY', 'KRW', 'HKD'].map(currency => (
+                                                    <div key={currency} className="bg-white rounded-lg p-3 border border-gray-200">
+                                                        <div className="text-sm text-gray-600">1 TWD =</div>
+                                                        <div className="text-lg font-bold text-blue-600">
+                                                            {exchangeRates[currency] 
+                                                                ? (exchangeRates[currency] / exchangeRates['TWD']).toFixed(4)
+                                                                : '...'} {currency}
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     </div>
