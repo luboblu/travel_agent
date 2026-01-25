@@ -865,7 +865,8 @@ useEffect(() => {
     });
 }, [groups, user.username]);
 
-            const handleCreateGroup = async (e) => {
+            // ✅ 修正後的 handleCreateGroup
+            const handleCreateGroup = async (e) => { // <--- 1. 確保有 async
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const groupName = formData.get('groupName').trim();
@@ -900,15 +901,16 @@ useEffect(() => {
                         }
                     };
 
-                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    // <--- 2. 這裡原本可能是 safeLocalStorage，改成這樣：
+                    const allGroups = await firebaseService.getItem('groups', {});
                     allGroups[groupId] = newGroup;
-                    safeLocalStorage.setItem('groups', allGroups);
+                    await firebaseService.setItem('groups', allGroups);
                     
                     setShowCreateGroup(false);
-                    setRefreshTrigger(prev => prev + 1); // 強制重新載入
+                    setRefreshTrigger(prev => prev + 1);
                     alert(`群組「${groupName}」建立成功！`);
                 } catch (error) {
-                    console.error('建立群組失敗:', error);
+                    console.error('建立群組失敗:', error); // 如果還有錯，按 F12 看 Console 會知道原因
                     alert('建立群組失敗，請重試');
                 }
             };
@@ -2651,12 +2653,12 @@ useEffect(() => {
                 await firebaseService.setItem('currentUser', userData);
             };
 
-            const handleLogout = async () => {  
-            setUser(null);
-            setCurrentGroup(null);
-            setShowAdmin(false);
-            await firebaseService.setItem('currentUser', null);
-        };
+            const handleLogout = async () => {
+                setUser(null);
+                setCurrentGroup(null);
+                setShowAdmin(false);
+                await firebaseService.setItem('currentUser', null);
+            };
 
             const handleSelectGroup = (group) => {
                 setCurrentGroup(group);
