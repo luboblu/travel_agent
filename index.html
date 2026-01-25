@@ -5,389 +5,431 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>旅行規劃師 - Travel Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
         }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
+    <div id="loading">載入中...</div>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        try {
+            const { useState, useEffect } = React;
 
-        // Icons
-        const MapPin = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            </svg>
-        );
-
-        const Calendar = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-        );
-
-        const Plus = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-        );
-
-        const Edit = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-        );
-
-        const Trash = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-        );
-
-        const LogOut = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-        );
-
-        const ExternalLink = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-        );
-
-        const Users = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-        );
-
-        const DollarSign = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        );
-
-        const X = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        );
-
-        // 登入頁面
-        function LoginPage({ onLogin }) {
-            const [username, setUsername] = useState('');
-            const [password, setPassword] = useState('');
-            const [isRegister, setIsRegister] = useState(false);
-
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                if (!username || !password) {
-                    alert('請輸入使用者名稱和密碼');
-                    return;
-                }
-
-                const users = JSON.parse(localStorage.getItem('users') || '{}');
-                
-                if (isRegister) {
-                    if (users[username]) {
-                        alert('使用者名稱已存在');
-                        return;
+            // 安全的 localStorage 操作
+            const safeLocalStorage = {
+                getItem: (key, defaultValue = null) => {
+                    try {
+                        const item = localStorage.getItem(key);
+                        return item ? JSON.parse(item) : defaultValue;
+                    } catch (error) {
+                        console.warn(`localStorage.getItem 失敗 (${key}):`, error);
+                        return defaultValue;
                     }
-                    users[username] = { password, role: 'user' };
-                    localStorage.setItem('users', JSON.stringify(users));
-                    alert('註冊成功！請登入');
-                    setIsRegister(false);
-                } else {
-                    if (!users[username] || users[username].password !== password) {
-                        alert('使用者名稱或密碼錯誤');
-                        return;
+                },
+                setItem: (key, value) => {
+                    try {
+                        localStorage.setItem(key, JSON.stringify(value));
+                        return true;
+                    } catch (error) {
+                        console.warn(`localStorage.setItem 失敗 (${key}):`, error);
+                        return false;
                     }
-                    const userData = { username, role: users[username].role };
-                    // 儲存登入狀態到 localStorage（保持登入）
-                    localStorage.setItem('currentUser', JSON.stringify(userData));
-                    onLogin(userData);
+                },
+                removeItem: (key) => {
+                    try {
+                        localStorage.removeItem(key);
+                        return true;
+                    } catch (error) {
+                        console.warn(`localStorage.removeItem 失敗 (${key}):`, error);
+                        return false;
+                    }
                 }
             };
 
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-                        <div className="text-center mb-8">
-                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                <MapPin className="w-10 h-10 text-white" />
+            // 移除載入指示器
+            const loadingEl = document.getElementById('loading');
+            if (loadingEl) loadingEl.remove();
+
+            // Icons
+            const MapPin = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+            );
+
+            const Calendar = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            );
+
+            const Plus = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+            );
+
+            const Edit = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+            );
+
+            const Trash = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            );
+
+            const LogOut = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+            );
+
+            const ExternalLink = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+            );
+
+            const Users = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            );
+
+            const DollarSign = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            );
+
+            const X = ({ className }) => (
+                <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            );
+
+            // 登入頁面
+            function LoginPage({ onLogin }) {
+                const [username, setUsername] = useState('');
+                const [password, setPassword] = useState('');
+                const [isRegister, setIsRegister] = useState(false);
+
+                const handleSubmit = (e) => {
+                    e.preventDefault();
+                    if (!username || !password) {
+                        alert('請輸入使用者名稱和密碼');
+                        return;
+                    }
+
+                    const users = safeLocalStorage.getItem('users', {});
+                    
+                    if (isRegister) {
+                        if (users[username]) {
+                            alert('使用者名稱已存在');
+                            return;
+                        }
+                        users[username] = { password, role: 'user' };
+                        safeLocalStorage.setItem('users', users);
+                        alert('註冊成功！請登入');
+                        setIsRegister(false);
+                    } else {
+                        if (!users[username] || users[username].password !== password) {
+                            alert('使用者名稱或密碼錯誤');
+                            return;
+                        }
+                        const userData = { username, role: users[username].role };
+                        safeLocalStorage.setItem('currentUser', userData);
+                        onLogin(userData);
+                    }
+                };
+
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+                            <div className="text-center mb-8">
+                                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <MapPin className="w-10 h-10 text-white" />
+                                </div>
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                    旅行規劃師
+                                </h1>
+                                <p className="text-gray-600 mt-2">
+                                    {isRegister ? '建立新帳號' : '登入你的帳號'}
+                                </p>
                             </div>
-                            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                                旅行規劃師
-                            </h1>
-                            <p className="text-gray-600 mt-2">
-                                {isRegister ? '建立新帳號' : '登入你的帳號'}
-                            </p>
-                        </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    使用者名稱
-                                </label>
-                                <input
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="輸入使用者名稱"
-                                />
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        使用者名稱
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="輸入使用者名稱"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        密碼
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="輸入密碼"
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                                >
+                                    {isRegister ? '註冊' : '登入'}
+                                </button>
+                            </form>
+
+                            <div className="mt-6 text-center">
+                                <button
+                                    onClick={() => setIsRegister(!isRegister)}
+                                    className="text-blue-600 hover:text-blue-800"
+                                >
+                                    {isRegister ? '已有帳號？登入' : '沒有帳號？註冊'}
+                                </button>
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    密碼
-                                </label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="輸入密碼"
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
-                            >
-                                {isRegister ? '註冊' : '登入'}
-                            </button>
-                        </form>
-
-                        <div className="mt-6 text-center">
-                            <button
-                                onClick={() => setIsRegister(!isRegister)}
-                                className="text-blue-600 hover:text-blue-800"
-                            >
-                                {isRegister ? '已有帳號？登入' : '沒有帳號？註冊'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            );
-        }
+                );
+            }
 
-        // 主應用程式
-        function TravelApp() {
-            const [user, setUser] = useState(null);
-            const [activeTab, setActiveTab] = useState('itinerary');
-            const [selectedDate, setSelectedDate] = useState('all'); // 用於日期篩選
-            
-            // 共享資料
-            const [sharedTodoItems, setSharedTodoItems] = useState([]);
-            const [sharedItinerary, setSharedItinerary] = useState([]);
-            
-            // 個人資料
-            const [personalPackingItems, setPersonalPackingItems] = useState([]);
-            const [expenses, setExpenses] = useState([]);
-            
-            // 分帳系統
-            const [splitBillData, setSplitBillData] = useState({
-                members: [],
-                publicBudget: 3280,
-                expenses: []
-            });
-
-            // 編輯模式
-            const [editingTodoItem, setEditingTodoItem] = useState(null);
-            const [editText, setEditText] = useState('');
-
-            // 行程表單
-            const [showItineraryForm, setShowItineraryForm] = useState(false);
-            const [editingItinerary, setEditingItinerary] = useState(null);
-
-            // 分帳彈窗
-            const [showMemberSelect, setShowMemberSelect] = useState(false);
-            const [showExpenseForm, setShowExpenseForm] = useState(false);
-
-            // 待辦清單表單
-            const [showTodoForm, setShowTodoForm] = useState(false);
-
-            // 整理行李表單
-            const [showPackingForm, setShowPackingForm] = useState(false);
-
-            // 記帳表單
-            const [showPersonalExpenseForm, setShowPersonalExpenseForm] = useState(false);
-            const [exchangeRate, setExchangeRate] = useState(0.22); // 預設匯率
-            const [lastUpdated, setLastUpdated] = useState('');     // 最後更新時間
-            const [isRateLoading, setIsRateLoading] = useState(false); // 讀取狀態
-            // 初始化測試帳號
-            useEffect(() => {
-                const users = JSON.parse(localStorage.getItem('users') || '{}');
-                if (Object.keys(users).length === 0) {
-                    users['admin'] = { password: 'admin123', role: 'admin' };
-                    users['user'] = { password: 'user123', role: 'user' };
-                    localStorage.setItem('users', JSON.stringify(users));
-                }
-
-                // 檢查是否有已登入的用戶
-                const currentUser = localStorage.getItem('currentUser');
-                if (currentUser) {
-                    setUser(JSON.parse(currentUser));
-                }
-            }, []);
-
-            // 載入共享資料
-            useEffect(() => {
-                const sharedData = JSON.parse(localStorage.getItem('sharedData') || '{}');
-                setSharedTodoItems(sharedData.todoItems || [
-                    { id: 1, text: '訂機票', completed: true, priority: true },
-                    { id: 2, text: '訂飯店', completed: true, priority: true },
-                    { id: 3, text: '申請簽證', completed: false, priority: true }
-                ]);
-                setSharedItinerary(sharedData.itinerary || [
-                    {
-                        id: 1,
-                        day: 1,
-                        date: '2026-02-01',
-                        title: '東京淺草寺',
-                        time: '09:00',
-                        location: '東京都台東區淺草2-3-1',
-                        description: '東京最古老的寺廟，必訪景點',
-                        mapUrl: 'https://maps.google.com/?q=淺草寺',
-                        websiteUrl: 'https://www.senso-ji.jp/',
-                        category: 'attraction'
-                    }
-                ]);
-                setSplitBillData(sharedData.splitBill || {
+            // 主應用程式
+            function TravelApp() {
+                const [user, setUser] = useState(null);
+                const [activeTab, setActiveTab] = useState('itinerary');
+                const [selectedDate, setSelectedDate] = useState('all');
+                
+                // 共享資料
+                const [sharedTodoItems, setSharedTodoItems] = useState([]);
+                const [sharedItinerary, setSharedItinerary] = useState([]);
+                
+                // 個人資料
+                const [personalPackingItems, setPersonalPackingItems] = useState([]);
+                const [expenses, setExpenses] = useState([]);
+                
+                // 分帳系統
+                const [splitBillData, setSplitBillData] = useState({
                     members: [],
                     publicBudget: 3280,
                     expenses: []
                 });
-            }, []);
 
-            // 載入個人資料
-            useEffect(() => {
-                if (user) {
-                    const userData = JSON.parse(localStorage.getItem(`userData_${user.username}`) || '{}');
-                    setPersonalPackingItems(userData.packingItems || [
-                        { id: 1, text: '充電線', completed: false },
-                        { id: 2, text: '行充', completed: false },
-                        { id: 3, text: '梳子', completed: false }
+                // 編輯模式
+                const [editingTodoItem, setEditingTodoItem] = useState(null);
+                const [editText, setEditText] = useState('');
+
+                // 行程表單
+                const [showItineraryForm, setShowItineraryForm] = useState(false);
+                const [editingItinerary, setEditingItinerary] = useState(null);
+
+                // 分帳彈窗
+                const [showMemberSelect, setShowMemberSelect] = useState(false);
+                const [showExpenseForm, setShowExpenseForm] = useState(false);
+
+                // 待辦清單表單
+                const [showTodoForm, setShowTodoForm] = useState(false);
+
+                // 整理行李表單
+                const [showPackingForm, setShowPackingForm] = useState(false);
+
+                // 記帳表單
+                const [showPersonalExpenseForm, setShowPersonalExpenseForm] = useState(false);
+                const [exchangeRate, setExchangeRate] = useState(0.22);
+                const [lastUpdated, setLastUpdated] = useState('');
+                const [isRateLoading, setIsRateLoading] = useState(false);
+
+                // 初始化測試帳號
+                useEffect(() => {
+                    const users = safeLocalStorage.getItem('users', {});
+                    if (Object.keys(users).length === 0) {
+                        users['admin'] = { password: 'admin123', role: 'admin' };
+                        users['user'] = { password: 'user123', role: 'user' };
+                        safeLocalStorage.setItem('users', users);
+                    }
+
+                    const currentUser = safeLocalStorage.getItem('currentUser', null);
+                    if (currentUser) {
+                        setUser(currentUser);
+                    }
+                }, []);
+
+                // 載入共享資料
+                useEffect(() => {
+                    const sharedData = safeLocalStorage.getItem('sharedData', {});
+                    setSharedTodoItems(sharedData.todoItems || [
+                        { id: 1, text: '訂機票', completed: true, priority: true },
+                        { id: 2, text: '訂飯店', completed: true, priority: true },
+                        { id: 3, text: '申請簽證', completed: false, priority: true }
                     ]);
-                    setExpenses(userData.expenses || []);
-                }
-            }, [user]);
-
-            // 儲存共享資料
-            const saveSharedData = () => {
-                const sharedData = {
-                    todoItems: sharedTodoItems,
-                    itinerary: sharedItinerary,
-                    splitBill: splitBillData
-                };
-                localStorage.setItem('sharedData', JSON.stringify(sharedData));
-            };
-
-            // 儲存個人資料
-            const savePersonalData = () => {
-                if (user) {
-                    const userData = {
-                        packingItems: personalPackingItems,
-                        expenses
-                    };
-                    localStorage.setItem(`userData_${user.username}`, JSON.stringify(userData));
-                }
-            };
-
-            useEffect(() => {
-                saveSharedData();
-            }, [sharedTodoItems, sharedItinerary, splitBillData]);
-
-            useEffect(() => {
-                savePersonalData();
-            }, [personalPackingItems, expenses]);
-            useEffect(() => {
-            if (activeTab === 'currency') {
-                setIsRateLoading(true);
-                // 使用免費公開 API (以 JPY 為基準)
-                fetch('https://api.exchangerate-api.com/v4/latest/JPY')
-                    .then(res => res.json())
-                    .then(data => {
-                        const rate = data.rates.TWD;
-                        setExchangeRate(rate);
-                        setLastUpdated(new Date(data.time_last_updated * 1000).toLocaleDateString());
-                        setIsRateLoading(false);
-                    })
-                    .catch(err => {
-                        console.error("匯率抓取失敗，使用預設值", err);
-                        setIsRateLoading(false);
+                    setSharedItinerary(sharedData.itinerary || [
+                        {
+                            id: 1,
+                            day: 1,
+                            date: '2026-02-01',
+                            title: '東京淺草寺',
+                            time: '09:00',
+                            location: '東京都台東區淺草2-3-1',
+                            description: '東京最古老的寺廟，必訪景點',
+                            mapUrl: 'https://maps.google.com/?q=淺草寺',
+                            websiteUrl: 'https://www.senso-ji.jp/',
+                            category: 'attraction'
+                        }
+                    ]);
+                    setSplitBillData(sharedData.splitBill || {
+                        members: [],
+                        publicBudget: 3280,
+                        expenses: []
                     });
-            }
-        }, [activeTab]);
-            if (!user) {
-                return <LoginPage onLogin={setUser} />;
-            }
+                }, []);
 
-            // 登出功能
-            const handleLogout = () => {
-                localStorage.removeItem('currentUser');
-                setUser(null);
-            };
+                // 載入個人資料
+                useEffect(() => {
+                    if (user) {
+                        const userData = safeLocalStorage.getItem(`userData_${user.username}`, {});
+                        setPersonalPackingItems(userData.packingItems || [
+                            { id: 1, text: '充電線', completed: false },
+                            { id: 2, text: '行充', completed: false },
+                            { id: 3, text: '梳子', completed: false }
+                        ]);
+                        setExpenses(userData.expenses || []);
+                    }
+                }, [user]);
 
-            // 獲取所有註冊用戶
-            const getAllUsers = () => {
-                const users = JSON.parse(localStorage.getItem('users') || '{}');
-                return Object.keys(users);
-            };
+                // 儲存共享資料
+                const saveSharedData = () => {
+                    const sharedData = {
+                        todoItems: sharedTodoItems,
+                        itinerary: sharedItinerary,
+                        splitBill: splitBillData
+                    };
+                    safeLocalStorage.setItem('sharedData', sharedData);
+                };
 
-            // 計算分帳
-            const calculateSplit = () => {
-                if (splitBillData.members.length === 0) {
-                    return { total: 0, average: 0, memberDebts: {} };
+                // 儲存個人資料
+                const savePersonalData = () => {
+                    if (user) {
+                        const userData = {
+                            packingItems: personalPackingItems,
+                            expenses
+                        };
+                        safeLocalStorage.setItem(`userData_${user.username}`, userData);
+                    }
+                };
+
+                useEffect(() => {
+                    saveSharedData();
+                }, [sharedTodoItems, sharedItinerary, splitBillData]);
+
+                useEffect(() => {
+                    savePersonalData();
+                }, [personalPackingItems, expenses]);
+
+                useEffect(() => {
+                    if (activeTab === 'currency') {
+                        setIsRateLoading(true);
+                        fetch('https://api.exchangerate-api.com/v4/latest/JPY')
+                            .then(res => res.json())
+                            .then(data => {
+                                const rate = data.rates.TWD;
+                                setExchangeRate(rate);
+                                setLastUpdated(new Date(data.time_last_updated * 1000).toLocaleDateString());
+                                setIsRateLoading(false);
+                            })
+                            .catch(err => {
+                                console.error("匯率抓取失敗，使用預設值", err);
+                                setIsRateLoading(false);
+                            });
+                    }
+                }, [activeTab]);
+
+                if (!user) {
+                    return <LoginPage onLogin={setUser} />;
                 }
 
-                const total = splitBillData.expenses.reduce((sum, e) => sum + e.amount, 0);
-                const memberCount = splitBillData.members.length;
-                const average = total / memberCount;
-                
-                const memberDebts = {};
-                splitBillData.members.forEach(member => {
-                    const paid = splitBillData.expenses
-                        .filter(e => e.payer === member)
-                        .reduce((sum, e) => sum + e.amount, 0);
-                    memberDebts[member] = paid - average;
-                });
-                
-                return { total, average, memberDebts };
-            };
-            const calculateSettlements = (debts) => {
+                // 登出功能
+                const handleLogout = () => {
+                    safeLocalStorage.removeItem('currentUser');
+                    setUser(null);
+                };
+
+                // 獲取所有註冊用戶
+                const getAllUsers = () => {
+                    const users = safeLocalStorage.getItem('users', {});
+                    return Object.keys(users);
+                };
+
+                // 計算分帳
+                const calculateSplit = () => {
+                    if (splitBillData.members.length === 0) {
+                        return { total: 0, average: 0, memberDebts: {} };
+                    }
+
+                    const total = splitBillData.expenses.reduce((sum, e) => sum + e.amount, 0);
+                    const memberCount = splitBillData.members.length;
+                    const average = total / memberCount;
+                    
+                    const memberDebts = {};
+                    splitBillData.members.forEach(member => {
+                        const paid = splitBillData.expenses
+                            .filter(e => e.payer === member)
+                            .reduce((sum, e) => sum + e.amount, 0);
+                        memberDebts[member] = paid - average;
+                    });
+                    
+                    return { total, average, memberDebts };
+                };
+
+                const calculateSettlements = (debts) => {
                     let debtors = [];
                     let creditors = [];
 
-                    // 分類：誰是欠錢的(負值)，誰是該收錢的(正值)
                     Object.entries(debts).forEach(([member, amount]) => {
-                        if (amount < -1) debtors.push({ member, amount }); // 欠錢
-                        if (amount > 1) creditors.push({ member, amount }); // 該收錢
+                        if (amount < -1) debtors.push({ member, amount });
+                        if (amount > 1) creditors.push({ member, amount });
                     });
 
-                    // 排序：金額大的排前面
                     debtors.sort((a, b) => a.amount - b.amount);
                     creditors.sort((a, b) => b.amount - a.amount);
 
                     const settlements = [];
 
-                    // 貪婪演算法匹配
                     while (debtors.length > 0 && creditors.length > 0) {
                         const debtor = debtors[0];
                         const creditor = creditors[0];
                         
-                        // 交易金額是兩者絕對值的最小值
                         const amount = Math.min(Math.abs(debtor.amount), creditor.amount);
 
                         settlements.push({
@@ -396,605 +438,599 @@
                             amount: Math.round(amount)
                         });
 
-                        // 更新餘額
                         debtor.amount += amount;
                         creditor.amount -= amount;
 
-                        // 如果餘額歸零（或極小），就移出清單
                         if (Math.abs(debtor.amount) < 1) debtors.shift();
                         if (creditor.amount < 1) creditors.shift();
                     }
                     return settlements;
                 };
 
-const settlements = calculateSettlements(memberDebts);
+                const { total: splitTotal, average: splitAverage, memberDebts } = calculateSplit();
+                const settlements = calculateSettlements(memberDebts);
 
-            const { total: splitTotal, average: splitAverage, memberDebts } = calculateSplit();
+                const todoProgress = sharedTodoItems.length > 0 
+                    ? Math.round((sharedTodoItems.filter(item => item.completed).length / sharedTodoItems.length) * 100)
+                    : 0;
 
-            const todoProgress = sharedTodoItems.length > 0 
-                ? Math.round((sharedTodoItems.filter(item => item.completed).length / sharedTodoItems.length) * 100)
-                : 0;
+                const packingProgress = personalPackingItems.length > 0
+                    ? Math.round((personalPackingItems.filter(item => item.completed).length / personalPackingItems.length) * 100)
+                    : 0;
 
-            const packingProgress = personalPackingItems.length > 0
-                ? Math.round((personalPackingItems.filter(item => item.completed).length / personalPackingItems.length) * 100)
-                : 0;
+                // 處理行程表單提交
+                const handleItinerarySubmit = (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const itineraryData = {
+                        id: editingItinerary ? editingItinerary.id : Date.now(),
+                        day: editingItinerary ? editingItinerary.day : sharedItinerary.length + 1,
+                        date: formData.get('date'),
+                        title: formData.get('title'),
+                        time: formData.get('time'),
+                        location: formData.get('location'),
+                        description: formData.get('description'),
+                        mapUrl: formData.get('mapUrl'),
+                        websiteUrl: formData.get('websiteUrl'),
+                        category: 'attraction'
+                    };
 
-            // 處理行程表單提交
-            const handleItinerarySubmit = (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const itineraryData = {
-                    id: editingItinerary ? editingItinerary.id : Date.now(),
-                    day: editingItinerary ? editingItinerary.day : sharedItinerary.length + 1,
-                    date: formData.get('date'),
-                    title: formData.get('title'),
-                    time: formData.get('time'),
-                    location: formData.get('location'),
-                    description: formData.get('description'),
-                    mapUrl: formData.get('mapUrl'),
-                    websiteUrl: formData.get('websiteUrl'),
-                    category: 'attraction'
+                    if (editingItinerary) {
+                        setSharedItinerary(sharedItinerary.map(item =>
+                            item.id === editingItinerary.id ? itineraryData : item
+                        ));
+                    } else {
+                        setSharedItinerary([...sharedItinerary, itineraryData]);
+                    }
+
+                    setSelectedDate(itineraryData.date);
+                    setShowItineraryForm(false);
+                    setEditingItinerary(null);
                 };
 
-                if (editingItinerary) {
-                    // 編輯模式
-                    setSharedItinerary(sharedItinerary.map(item =>
-                        item.id === editingItinerary.id ? itineraryData : item
-                    ));
-                } else {
-                    // 新增模式
-                    setSharedItinerary([...sharedItinerary, itineraryData]);
-                }
-
-                // 切換到該日期的標籤
-                setSelectedDate(itineraryData.date);
-                setShowItineraryForm(false);
-                setEditingItinerary(null);
-            };
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-                    {/* Header */}
-                    <header className="bg-white shadow-md sticky top-0 z-50">
-                        <div className="max-w-7xl mx-auto px-4 py-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                                        <MapPin className="w-6 h-6 text-white" />
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+                        {/* Header */}
+                        <header className="bg-white shadow-md sticky top-0 z-50">
+                            <div className="max-w-7xl mx-auto px-4 py-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                                            <MapPin className="w-6 h-6 text-white" />
+                                        </div>
+                                        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                            旅行規劃師
+                                        </h1>
                                     </div>
-                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                                        旅行規劃師
-                                    </h1>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-sm text-gray-600">
-                                        歡迎, <strong>{user.username}</strong>
-                                        {user.role === 'admin' && ' (管理員)'}
-                                    </span>
-                                    <button
-                                        onClick={handleLogout}
-                                        className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                        <LogOut className="w-4 h-4" />
-                                        登出
-                                    </button>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-sm text-gray-600">
+                                            歡迎, <strong>{user.username}</strong>
+                                            {user.role === 'admin' && ' (管理員)'}
+                                        </span>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            登出
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </header>
+                        </header>
 
-                    {/* Navigation */}
-                    <div className="max-w-7xl mx-auto px-4 py-6">
-                        <div className="bg-white rounded-xl shadow-sm p-2 flex gap-2 overflow-x-auto">
-                            {[
-                                { id: 'itinerary', name: '行程規劃', icon: Calendar },
-                                { id: 'checklist', name: '準備清單', icon: '📋' },
-                                { id: 'currency', name: '匯率換算', icon: '💱' },
-                                { id: 'expenses', name: '記帳本', icon: DollarSign },
-                                { id: 'split', name: '分帳本', icon: Users }
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
-                                        activeTab === tab.id
-                                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-                                            : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                                >
-                                    {typeof tab.icon === 'string' ? (
-                                        <span>{tab.icon}</span>
-                                    ) : (
-                                        <tab.icon className="w-4 h-4" />
-                                    )}
-                                    {tab.name}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Main Content */}
-                    <div className="max-w-7xl mx-auto px-4 pb-12">
-                        {/* 行程規劃 */}
-                        {activeTab === 'itinerary' && (
-                            <div className="space-y-6">
-                                <div className="bg-white rounded-2xl shadow-lg p-8">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-2xl font-bold text-gray-800">🗓️ 行程規劃</h2>
-                                        {user.role === 'admin' && (
-                                            <button
-                                                onClick={() => {
-                                                    setEditingItinerary(null);
-                                                    setShowItineraryForm(true);
-                                                }}
-                                                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                                            >
-                                                <Plus className="w-4 h-4" />
-                                                新增行程
-                                            </button>
+                        {/* Navigation */}
+                        <div className="max-w-7xl mx-auto px-4 py-6">
+                            <div className="bg-white rounded-xl shadow-sm p-2 flex gap-2 overflow-x-auto">
+                                {[
+                                    { id: 'itinerary', name: '行程規劃', icon: Calendar },
+                                    { id: 'checklist', name: '準備清單', icon: '📋' },
+                                    { id: 'currency', name: '匯率換算', icon: '💱' },
+                                    { id: 'expenses', name: '記帳本', icon: DollarSign },
+                                    { id: 'split', name: '分帳本', icon: Users }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+                                            activeTab === tab.id
+                                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+                                                : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {typeof tab.icon === 'string' ? (
+                                            <span>{tab.icon}</span>
+                                        ) : (
+                                            <tab.icon className="w-4 h-4" />
                                         )}
-                                    </div>
+                                        {tab.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                                    {/* 日期篩選按鈕 */}
-                                    {sharedItinerary.length > 0 && (
-                                        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
-                                            <button
-                                                onClick={() => setSelectedDate('all')}
-                                                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
-                                                    selectedDate === 'all'
-                                                        ? 'bg-blue-600 text-white shadow-md'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                }`}
-                                            >
-                                                全部行程
-                                            </button>
-                                            {[...new Set(sharedItinerary.map(item => item.date))].sort().map(date => (
+                        {/* Main Content */}
+                        <div className="max-w-7xl mx-auto px-4 pb-12">
+                            {/* 行程規劃 */}
+                            {activeTab === 'itinerary' && (
+                                <div className="space-y-6">
+                                    <div className="bg-white rounded-2xl shadow-lg p-8">
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h2 className="text-2xl font-bold text-gray-800">🗓️ 行程規劃</h2>
+                                            {user.role === 'admin' && (
                                                 <button
-                                                    key={date}
-                                                    onClick={() => setSelectedDate(date)}
+                                                    onClick={() => {
+                                                        setEditingItinerary(null);
+                                                        setShowItineraryForm(true);
+                                                    }}
+                                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                    新增行程
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* 日期篩選按鈕 */}
+                                        {sharedItinerary.length > 0 && (
+                                            <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+                                                <button
+                                                    onClick={() => setSelectedDate('all')}
                                                     className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
-                                                        selectedDate === date
+                                                        selectedDate === 'all'
                                                             ? 'bg-blue-600 text-white shadow-md'
                                                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                                     }`}
                                                 >
-                                                    📅 {date}
+                                                    全部行程
                                                 </button>
+                                                {[...new Set(sharedItinerary.map(item => item.date))].sort().map(date => (
+                                                    <button
+                                                        key={date}
+                                                        onClick={() => setSelectedDate(date)}
+                                                        className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                                                            selectedDate === date
+                                                                ? 'bg-blue-600 text-white shadow-md'
+                                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        📅 {date}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-4">
+                                            {sharedItinerary
+                                                .filter(item => selectedDate === 'all' || item.date === selectedDate)
+                                                .map(item => (
+                                                <div key={item.id} className="border-2 border-blue-200 rounded-xl p-6 hover:shadow-lg transition-all">
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3 mb-3">
+                                                                <span className="text-gray-600 font-semibold">{item.date}</span>
+                                                                <span className="text-gray-600">{item.time}</span>
+                                                            </div>
+                                                            <h3 className="text-xl font-bold text-gray-800 mb-2">{item.title}</h3>
+                                                            <p className="text-gray-600 mb-2">📍 {item.location}</p>
+                                                            <p className="text-gray-700 mb-4">{item.description}</p>
+                                                            
+                                                            <div className="flex gap-3">
+                                                                {item.mapUrl && (
+                                                                    <a
+                                                                        href={item.mapUrl}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                                                                    >
+                                                                        <MapPin className="w-4 h-4" />
+                                                                        開啟地圖
+                                                                        <ExternalLink className="w-3 h-3" />
+                                                                    </a>
+                                                                )}
+                                                                {item.websiteUrl && (
+                                                                    <a
+                                                                        href={item.websiteUrl}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                                                    >
+                                                                        查看網站
+                                                                        <ExternalLink className="w-3 h-3" />
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {user.role === 'admin' && (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingItinerary(item);
+                                                                        setShowItineraryForm(true);
+                                                                    }}
+                                                                    className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"
+                                                                >
+                                                                    <Edit className="w-5 h-5" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (confirm('確定要刪除此行程嗎？')) {
+                                                                            setSharedItinerary(sharedItinerary.filter(i => i.id !== item.id));
+                                                                        }
+                                                                    }}
+                                                                    className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                                                                >
+                                                                    <Trash className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
-                                    )}
 
-                                    <div className="space-y-4">
-                                        {sharedItinerary
-                                            .filter(item => selectedDate === 'all' || item.date === selectedDate)
-                                            .map(item => (
-                                            <div key={item.id} className="border-2 border-blue-200 rounded-xl p-6 hover:shadow-lg transition-all">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-3 mb-3">
-                                                            <span className="text-gray-600 font-semibold">{item.date}</span>
-                                                            <span className="text-gray-600">{item.time}</span>
-                                                        </div>
-                                                        <h3 className="text-xl font-bold text-gray-800 mb-2">{item.title}</h3>
-                                                        <p className="text-gray-600 mb-2">📍 {item.location}</p>
-                                                        <p className="text-gray-700 mb-4">{item.description}</p>
-                                                        
-                                                        <div className="flex gap-3">
-                                                            {item.mapUrl && (
-                                                                <a
-                                                                    href={item.mapUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                                                                >
-                                                                    <MapPin className="w-4 h-4" />
-                                                                    開啟地圖
-                                                                    <ExternalLink className="w-3 h-3" />
-                                                                </a>
-                                                            )}
-                                                            {item.websiteUrl && (
-                                                                <a
-                                                                    href={item.websiteUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                                                                >
-                                                                    查看網站
-                                                                    <ExternalLink className="w-3 h-3" />
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    {user.role === 'admin' && (
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingItinerary(item);
-                                                                    setShowItineraryForm(true);
-                                                                }}
-                                                                className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"
-                                                            >
-                                                                <Edit className="w-5 h-5" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    if (confirm('確定要刪除此行程嗎？')) {
-                                                                        setSharedItinerary(sharedItinerary.filter(i => i.id !== item.id));
-                                                                    }
-                                                                }}
-                                                                className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
-                                                            >
-                                                                <Trash className="w-5 h-5" />
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
+                                        {sharedItinerary.filter(item => selectedDate === 'all' || item.date === selectedDate).length === 0 && (
+                                            <p className="text-gray-400 text-center py-12">
+                                                {sharedItinerary.length === 0
+                                                    ? (user.role === 'admin' 
+                                                        ? '尚未新增行程，點擊上方按鈕開始規劃！' 
+                                                        : '目前還沒有行程規劃')
+                                                    : '此日期沒有行程'
+                                                }
+                                            </p>
+                                        )}
                                     </div>
-
-                                    {sharedItinerary.filter(item => selectedDate === 'all' || item.date === selectedDate).length === 0 && (
-                                        <p className="text-gray-400 text-center py-12">
-                                            {sharedItinerary.length === 0
-                                                ? (user.role === 'admin' 
-                                                    ? '尚未新增行程，點擊上方按鈕開始規劃！' 
-                                                    : '目前還沒有行程規劃')
-                                                : '此日期沒有行程'
-                                            }
-                                        </p>
-                                    )}
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {/* 準備清單 */}
-                        {activeTab === 'checklist' && (
-                            <div className="space-y-6">
-                                {/* 待辦清單 - 共享 */}
-                                <div className="bg-white rounded-2xl shadow-lg p-8">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-2xl font-bold text-gray-800">📋 待辦清單 TO-DO</h2>
-                                        <span className="text-sm text-gray-600">進度: {todoProgress}%</span>
-                                    </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-                                        <div 
-                                            className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all"
-                                            style={{ width: `${todoProgress}%` }}
-                                        />
-                                    </div>
-                                    
-                                    <div className="space-y-3 mb-4">
-                                        {sharedTodoItems.map(item => (
-                                            <div key={item.id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={item.completed}
-                                                    onChange={() => {
-                                                        setSharedTodoItems(sharedTodoItems.map(i => 
-                                                            i.id === item.id ? { ...i, completed: !i.completed } : i
-                                                        ));
-                                                    }}
-                                                    className="w-5 h-5 text-blue-600"
-                                                />
-                                                {editingTodoItem === item.id ? (
+                            {/* 準備清單 */}
+                            {activeTab === 'checklist' && (
+                                <div className="space-y-6">
+                                    {/* 待辦清單 - 共享 */}
+                                    <div className="bg-white rounded-2xl shadow-lg p-8">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h2 className="text-2xl font-bold text-gray-800">📋 待辦清單 TO-DO</h2>
+                                            <span className="text-sm text-gray-600">進度: {todoProgress}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+                                            <div 
+                                                className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all"
+                                                style={{ width: `${todoProgress}%` }}
+                                            />
+                                        </div>
+                                        
+                                        <div className="space-y-3 mb-4">
+                                            {sharedTodoItems.map(item => (
+                                                <div key={item.id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                                                     <input
-                                                        type="text"
-                                                        value={editText}
-                                                        onChange={(e) => setEditText(e.target.value)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                setSharedTodoItems(sharedTodoItems.map(i =>
-                                                                    i.id === item.id ? { ...i, text: editText } : i
-                                                                ));
-                                                                setEditingTodoItem(null);
-                                                            }
+                                                        type="checkbox"
+                                                        checked={item.completed}
+                                                        onChange={() => {
+                                                            setSharedTodoItems(sharedTodoItems.map(i => 
+                                                                i.id === item.id ? { ...i, completed: !i.completed } : i
+                                                            ));
                                                         }}
-                                                        className="flex-1 px-3 py-2 border border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                        autoFocus
+                                                        className="w-5 h-5 text-blue-600"
                                                     />
-                                                ) : (
-                                                    <span className={`flex-1 ${item.completed ? 'line-through text-gray-400' : ''}`}>
-                                                        {item.text}
-                                                    </span>
-                                                )}
-                                                {item.priority && <span className="text-red-500 text-xl">⭐</span>}
-                                                {user.role === 'admin' && (
-                                                    <div className="flex gap-2">
-                                                        {editingTodoItem === item.id ? (
-                                                            <button
-                                                                onClick={() => {
+                                                    {editingTodoItem === item.id ? (
+                                                        <input
+                                                            type="text"
+                                                            value={editText}
+                                                            onChange={(e) => setEditText(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
                                                                     setSharedTodoItems(sharedTodoItems.map(i =>
                                                                         i.id === item.id ? { ...i, text: editText } : i
                                                                     ));
                                                                     setEditingTodoItem(null);
-                                                                }}
-                                                                className="text-green-600 hover:bg-green-50 p-2 rounded-lg"
-                                                            >
-                                                                ✓
-                                                            </button>
-                                                        ) : (
+                                                                }
+                                                            }}
+                                                            className="flex-1 px-3 py-2 border border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <span className={`flex-1 ${item.completed ? 'line-through text-gray-400' : ''}`}>
+                                                            {item.text}
+                                                        </span>
+                                                    )}
+                                                    {item.priority && <span className="text-red-500 text-xl">⭐</span>}
+                                                    {user.role === 'admin' && (
+                                                        <div className="flex gap-2">
+                                                            {editingTodoItem === item.id ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSharedTodoItems(sharedTodoItems.map(i =>
+                                                                            i.id === item.id ? { ...i, text: editText } : i
+                                                                        ));
+                                                                        setEditingTodoItem(null);
+                                                                    }}
+                                                                    className="text-green-600 hover:bg-green-50 p-2 rounded-lg"
+                                                                >
+                                                                    ✓
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingTodoItem(item.id);
+                                                                        setEditText(item.text);
+                                                                    }}
+                                                                    className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"
+                                                                >
+                                                                    <Edit className="w-4 h-4" />
+                                                                </button>
+                                                            )}
                                                             <button
-                                                                onClick={() => {
-                                                                    setEditingTodoItem(item.id);
-                                                                    setEditText(item.text);
-                                                                }}
-                                                                className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"
+                                                                onClick={() => setSharedTodoItems(sharedTodoItems.filter(i => i.id !== item.id))}
+                                                                className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
                                                             >
-                                                                <Edit className="w-4 h-4" />
+                                                                <Trash className="w-4 h-4" />
                                                             </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => setSharedTodoItems(sharedTodoItems.filter(i => i.id !== item.id))}
-                                                            className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
-                                                        >
-                                                            <Trash className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {user.role === 'admin' && (
+                                            <button
+                                                onClick={() => setShowTodoForm(true)}
+                                                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                                新增項目
+                                            </button>
+                                        )}
                                     </div>
 
-                                    {user.role === 'admin' && (
+                                    {/* 整理行李 - 個人 */}
+                                    <div className="bg-white rounded-2xl shadow-lg p-8">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h2 className="text-2xl font-bold text-gray-800">🎒 整理行李 PACKING</h2>
+                                            <span className="text-sm text-gray-600">進度: {packingProgress}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+                                            <div 
+                                                className="bg-gradient-to-r from-green-500 to-teal-600 h-2 rounded-full transition-all"
+                                                style={{ width: `${packingProgress}%` }}
+                                            />
+                                        </div>
+                                        
+                                        <div className="grid md:grid-cols-2 gap-3 mb-4">
+                                            {personalPackingItems.map(item => (
+                                                <div key={item.id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={item.completed}
+                                                        onChange={() => {
+                                                            setPersonalPackingItems(personalPackingItems.map(i => 
+                                                                i.id === item.id ? { ...i, completed: !i.completed } : i
+                                                            ));
+                                                        }}
+                                                        className="w-5 h-5 text-green-600"
+                                                    />
+                                                    <span className={`flex-1 ${item.completed ? 'line-through text-gray-400' : ''}`}>
+                                                        {item.text}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setPersonalPackingItems(personalPackingItems.filter(i => i.id !== item.id))}
+                                                        className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                                                    >
+                                                        <Trash className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+
                                         <button
-                                            onClick={() => setShowTodoForm(true)}
-                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                            onClick={() => setShowPackingForm(true)}
+                                            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
                                         >
                                             <Plus className="w-4 h-4" />
                                             新增項目
                                         </button>
-                                    )}
+                                    </div>
                                 </div>
+                            )}
 
-                                {/* 整理行李 - 個人 */}
+                            {/* 匯率換算 */}
+                            {activeTab === 'currency' && (
                                 <div className="bg-white rounded-2xl shadow-lg p-8">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-2xl font-bold text-gray-800">🎒 整理行李 PACKING</h2>
-                                        <span className="text-sm text-gray-600">進度: {packingProgress}%</span>
+                                    <div className="max-w-md mx-auto">
+                                        <div className="text-center mb-8">
+                                            <h2 className="text-3xl font-bold text-gray-800 mb-2">💱 匯率換算</h2>
+                                            <p className="text-gray-600">JPY ⇄ TWD</p>
+                                        </div>
+
+                                        <div className="mb-6">
+                                            <label className="block text-sm text-gray-600 mb-2">日幣金額 (JPY)</label>
+                                            <input
+                                                type="number"
+                                                placeholder="輸入日幣..."
+                                                className="w-full px-4 py-4 border-2 border-gray-300 rounded-lg text-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                onChange={(e) => {
+                                                    const twd = e.target.value ? (parseFloat(e.target.value) * exchangeRate).toFixed(0) : '';
+                                                    document.getElementById('twdInput').innerText = twd ? `NT$ ${parseFloat(twd).toLocaleString()}` : 'NT$ 0';
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="text-center py-4">
+                                            <div className="inline-flex flex-col items-center gap-1 bg-blue-50 px-6 py-3 rounded-2xl">
+                                                <div className="flex items-center gap-2">
+                                                    {isRateLoading ? (
+                                                        <span className="text-blue-600">更新中...</span>
+                                                    ) : (
+                                                        <span className="text-blue-600 font-bold text-lg">
+                                                            即時匯率: {exchangeRate}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {lastUpdated && (
+                                                    <span className="text-xs text-blue-400">
+                                                        更新日期: {lastUpdated}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm text-gray-600 mb-2">約合台幣</label>
+                                            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                                <div className="text-4xl font-bold text-gray-800" id="twdInput">
+                                                    NT$ 0
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-                                        <div 
-                                            className="bg-gradient-to-r from-green-500 to-teal-600 h-2 rounded-full transition-all"
-                                            style={{ width: `${packingProgress}%` }}
-                                        />
-                                    </div>
+                                </div>
+                            )}
+
+                            {/* 記帳本 */}
+                            {activeTab === 'expenses' && (
+                                <div className="bg-white rounded-2xl shadow-lg p-8">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">💰 記帳小幫手</h2>
                                     
-                                    <div className="grid md:grid-cols-2 gap-3 mb-4">
-                                        {personalPackingItems.map(item => (
-                                            <div key={item.id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={item.completed}
-                                                    onChange={() => {
-                                                        setPersonalPackingItems(personalPackingItems.map(i => 
-                                                            i.id === item.id ? { ...i, completed: !i.completed } : i
-                                                        ));
-                                                    }}
-                                                    className="w-5 h-5 text-green-600"
-                                                />
-                                                <span className={`flex-1 ${item.completed ? 'line-through text-gray-400' : ''}`}>
-                                                    {item.text}
-                                                </span>
-                                                <button
-                                                    onClick={() => setPersonalPackingItems(personalPackingItems.filter(i => i.id !== item.id))}
-                                                    className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
-                                                >
-                                                    <Trash className="w-4 h-4" />
-                                                </button>
+                                    <div className="mb-6 p-6 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-xl">
+                                        <div className="text-sm mb-1">總支出</div>
+                                        <div className="text-4xl font-bold">
+                                            NT$ {expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 mb-6">
+                                        {expenses.map(expense => (
+                                            <div key={expense.id} className="flex justify-between items-center p-5 border-2 border-gray-200 rounded-xl hover:border-green-300 transition-colors">
+                                                <div className="flex-1">
+                                                    <div className="font-bold text-lg">{expense.name}</div>
+                                                    <div className="text-sm text-gray-600">{expense.category}</div>
+                                                </div>
+                                                <div className="text-xl font-bold text-green-600">
+                                                    NT$ {expense.amount.toLocaleString()}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
 
+                                    {expenses.length === 0 && (
+                                        <p className="text-gray-400 text-center py-12">還沒有記帳記錄</p>
+                                    )}
+
                                     <button
-                                        onClick={() => setShowPackingForm(true)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                                        onClick={() => setShowPersonalExpenseForm(true)}
+                                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 font-semibold text-lg"
                                     >
-                                        <Plus className="w-4 h-4" />
-                                        新增項目
+                                        <Plus className="w-5 h-5" />
+                                        新增支出
                                     </button>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {/* 匯率換算 */}
-                        {activeTab === 'currency' && (
-                            <div className="bg-white rounded-2xl shadow-lg p-8">
-                                <div className="max-w-md mx-auto">
-                                    <div className="text-center mb-8">
-                                        <h2 className="text-3xl font-bold text-gray-800 mb-2">💱 匯率換算</h2>
-                                        <p className="text-gray-600">JPY ⇄ TWD</p>
-                                    </div>
-
-                                    <div className="mb-6">
-                                        <label className="block text-sm text-gray-600 mb-2">日幣金額 (JPY)</label>
-                                        <input
-                                            type="number"
-                                            placeholder="輸入日幣..."
-                                            className="w-full px-4 py-4 border-2 border-gray-300 rounded-lg text-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            onChange={(e) => {
-                                                const twd = e.target.value ? (parseFloat(e.target.value) * exchangeRate).toFixed(0) : '';
-                                                document.getElementById('twdInput').innerText = twd ? `NT$ ${parseFloat(twd).toLocaleString()}` : 'NT$ 0';
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div className="text-center py-4">
-    <div className="inline-flex flex-col items-center gap-1 bg-blue-50 px-6 py-3 rounded-2xl">
-        <div className="flex items-center gap-2">
-            {isRateLoading ? (
-                <span className="text-blue-600">更新中...</span>
-            ) : (
-                <span className="text-blue-600 font-bold text-lg">
-                    即時匯率: {exchangeRate}
-                </span>
-            )}
-        </div>
-        {lastUpdated && (
-            <span className="text-xs text-blue-400">
-                更新日期: {lastUpdated}
-            </span>
-        )}
-    </div>
-</div>
-
-                                    <div>
-                                        <label className="block text-sm text-gray-600 mb-2">約合台幣</label>
-                                        <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                                            <div className="text-4xl font-bold text-gray-800" id="twdInput">
-                                                NT$ 0
+                            {/* 分帳本 */}
+                            {activeTab === 'split' && (
+                                <div className="bg-white rounded-2xl shadow-lg p-8">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center text-white text-2xl">
+                                                💼
+                                            </div>
+                                            <div>
+                                                <h2 className="text-2xl font-bold text-gray-800">旅行分帳本</h2>
+                                                <p className="text-sm text-gray-600">即時同步・多人協作</p>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 記帳本 */}
-                        {activeTab === 'expenses' && (
-                            <div className="bg-white rounded-2xl shadow-lg p-8">
-                                <h2 className="text-2xl font-bold text-gray-800 mb-6">💰 記帳小幫手</h2>
-                                
-                                <div className="mb-6 p-6 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-xl">
-                                    <div className="text-sm mb-1">總支出</div>
-                                    <div className="text-4xl font-bold">
-                                        NT$ {expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3 mb-6">
-                                    {expenses.map(expense => (
-                                        <div key={expense.id} className="flex justify-between items-center p-5 border-2 border-gray-200 rounded-xl hover:border-green-300 transition-colors">
-                                            <div className="flex-1">
-                                                <div className="font-bold text-lg">{expense.name}</div>
-                                                <div className="text-sm text-gray-600">{expense.category}</div>
-                                            </div>
-                                            <div className="text-xl font-bold text-green-600">
-                                                NT$ {expense.amount.toLocaleString()}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {expenses.length === 0 && (
-                                    <p className="text-gray-400 text-center py-12">還沒有記帳記錄</p>
-                                )}
-
-                                <button
-                                    onClick={() => setShowPersonalExpenseForm(true)}
-                                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 font-semibold text-lg"
-                                >
-                                    <Plus className="w-5 h-5" />
-                                    新增支出
-                                </button>
-                            </div>
-                        )}
-
-                        {/* 分帳本 */}
-                        {activeTab === 'split' && (
-                            <div className="bg-white rounded-2xl shadow-lg p-8">
-                                <div className="flex justify-between items-center mb-6">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center text-white text-2xl">
-                                            💼
-                                        </div>
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-gray-800">旅行分帳本</h2>
-                                            <p className="text-sm text-gray-600">即時同步・多人協作</p>
+                                        <div className="flex gap-2">
+                                            {user.role === 'admin' && (
+                                                <button
+                                                    onClick={() => setShowMemberSelect(true)}
+                                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                                                >
+                                                    <Users className="w-4 h-4 inline mr-2" />
+                                                    管理成員
+                                                </button>
+                                            )}
+                                            {splitBillData.members.length > 0 && (
+                                                <button
+                                                    onClick={() => setShowExpenseForm(true)}
+                                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                                >
+                                                    <Plus className="w-4 h-4 inline mr-2" />
+                                                    記帳
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        {user.role === 'admin' && (
-                                            <button
-                                                onClick={() => setShowMemberSelect(true)}
-                                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                                            >
-                                                <Users className="w-4 h-4 inline mr-2" />
-                                                管理成員
-                                            </button>
-                                        )}
-                                        {splitBillData.members.length > 0 && (
-                                            <button
-                                                onClick={() => setShowExpenseForm(true)}
-                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                                            >
-                                                <Plus className="w-4 h-4 inline mr-2" />
-                                                記帳
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
 
-                                {splitBillData.members.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                                        <p className="text-gray-400 mb-4">還沒有設定分帳成員</p>
-                                        {user.role === 'admin' && (
-                                            <button
-                                                onClick={() => setShowMemberSelect(true)}
-                                                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                                            >
-                                                開始設定成員
-                                            </button>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <>
-                                        {/* 總覽卡片 */}
-                                        <div className="grid md:grid-cols-2 gap-6 mb-8">
-                                            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6">
-                                                <div className="text-sm text-red-700 mb-1">總花費 TOTAL</div>
-                                                <div className="text-4xl font-bold text-red-900">
-                                                    NT$ {splitTotal.toLocaleString()}
+                                    {splitBillData.members.length === 0 ? (
+                                        <div className="text-center py-12">
+                                            <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                                            <p className="text-gray-400 mb-4">還沒有設定分帳成員</p>
+                                            {user.role === 'admin' && (
+                                                <button
+                                                    onClick={() => setShowMemberSelect(true)}
+                                                    className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                                                >
+                                                    開始設定成員
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* 總覽卡片 */}
+                                            <div className="grid md:grid-cols-2 gap-6 mb-8">
+                                                <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6">
+                                                    <div className="text-sm text-red-700 mb-1">總花費 TOTAL</div>
+                                                    <div className="text-4xl font-bold text-red-900">
+                                                        NT$ {splitTotal.toLocaleString()}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6">
-                                                <div className="text-sm text-purple-700 mb-1">平均每人 SPLIT</div>
-                                                <div className="text-4xl font-bold text-purple-900">
-                                                    NT$ {Math.round(splitAverage).toLocaleString()}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* 公費額度 */}
-                                        {splitBillData.publicBudget > 0 && (
-                                            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 mb-6">
-                                                <div className="flex justify-between items-center">
-                                                    <div>
-                                                        <div className="text-sm text-green-700 mb-1">
-                                                            公費額度 (每人初始 NT$ {splitBillData.publicBudget})
-                                                        </div>
-                                                        <div className="text-2xl font-bold text-green-900">
-                                                            剩餘: NT$ {(splitBillData.members.length * splitBillData.publicBudget - splitTotal).toLocaleString()}
-                                                        </div>
+                                                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6">
+                                                    <div className="text-sm text-purple-700 mb-1">平均每人 SPLIT</div>
+                                                    <div className="text-4xl font-bold text-purple-900">
+                                                        NT$ {Math.round(splitAverage).toLocaleString()}
                                                     </div>
                                                 </div>
                                             </div>
-                                        )}
 
-                                        {/* 成員清單 */}
-                                        <div className="bg-gray-50 rounded-xl p-6 mb-6">
-                                            <h3 className="font-bold text-gray-800 mb-4">成員清單</h3>
-                                            <div className="grid md:grid-cols-3 gap-3">
-                                                {splitBillData.members.map(member => {
-                                                    const debt = memberDebts[member] || 0;
-                                                    return (
-                                                        <div key={member} className="bg-white rounded-lg p-4 border-2 border-gray-200">
-                                                            <div className="flex items-center gap-3 mb-2">
-                                                                <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                                                                    {member[0].toUpperCase()}
-                                                                </div>
-                                                                <div className="font-semibold">{member}</div>
+                                            {/* 公費額度 */}
+                                            {splitBillData.publicBudget > 0 && (
+                                                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 mb-6">
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <div className="text-sm text-green-700 mb-1">
+                                                                公費額度 (每人初始 NT$ {splitBillData.publicBudget})
                                                             </div>
-                                                            <div className={`text-lg font-bold ${debt > 0 ? 'text-green-600' : debt < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                                                                {debt > 0 ? '多付' : debt < 0 ? '應付' : '已結清'} NT$ {Math.abs(Math.round(debt)).toLocaleString()}
+                                                            <div className="text-2xl font-bold text-green-900">
+                                                                剩餘: NT$ {(splitBillData.members.length * splitBillData.publicBudget - splitTotal).toLocaleString()}
                                                             </div>
                                                         </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                        {/* 在「成員清單」區塊結束後，插入這段程式碼 */}
+                                                    </div>
+                                                </div>
+                                            )}
 
+                                            {/* 成員清單 */}
+                                            <div className="bg-gray-50 rounded-xl p-6 mb-6">
+                                                <h3 className="font-bold text-gray-800 mb-4">成員清單</h3>
+                                                <div className="grid md:grid-cols-3 gap-3">
+                                                    {splitBillData.members.map(member => {
+                                                        const debt = memberDebts[member] || 0;
+                                                        return (
+                                                            <div key={member} className="bg-white rounded-lg p-4 border-2 border-gray-200">
+                                                                <div className="flex items-center gap-3 mb-2">
+                                                                    <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                                                                        {member[0].toUpperCase()}
+                                                                    </div>
+                                                                    <div className="font-semibold">{member}</div>
+                                                                </div>
+                                                                <div className={`text-lg font-bold ${debt > 0 ? 'text-green-600' : debt < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                                    {debt > 0 ? '多付' : debt < 0 ? '應付' : '已結清'} NT$ {Math.abs(Math.round(debt)).toLocaleString()}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {/* 結算建議 */}
                                             {settlements.length > 0 && (
                                                 <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 mb-6">
                                                     <h3 className="font-bold text-yellow-800 mb-4 flex items-center gap-2">
@@ -1017,60 +1053,129 @@ const settlements = calculateSettlements(memberDebts);
                                                 </div>
                                             )}
 
-                                        {/* 支出記錄 */}
-                                        <div>
-                                            <h3 className="font-bold text-gray-800 mb-4">💳 支出記錄</h3>
-                                            {splitBillData.expenses.length === 0 ? (
-                                                <p className="text-gray-400 text-center py-8">還沒有支出記錄</p>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {splitBillData.expenses.map(expense => (
-                                                        <div key={expense.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                                                            <div>
-                                                                <div className="font-semibold">{expense.item}</div>
-                                                                <div className="text-sm text-gray-600">
-                                                                    {expense.payer} 支付 • {expense.category}
+                                            {/* 支出記錄 */}
+                                            <div>
+                                                <h3 className="font-bold text-gray-800 mb-4">💳 支出記錄</h3>
+                                                {splitBillData.expenses.length === 0 ? (
+                                                    <p className="text-gray-400 text-center py-8">還沒有支出記錄</p>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        {splitBillData.expenses.map(expense => (
+                                                            <div key={expense.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                                                                <div>
+                                                                    <div className="font-semibold">{expense.item}</div>
+                                                                    <div className="text-sm text-gray-600">
+                                                                        {expense.payer} 支付 • {expense.category}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-xl font-bold text-blue-600">
+                                                                    NT$ {expense.amount.toLocaleString()}
                                                                 </div>
                                                             </div>
-                                                            <div className="text-xl font-bold text-blue-600">
-                                                                NT$ {expense.amount.toLocaleString()}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 待辦清單表單彈窗 */}
+                        {showTodoForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-bold">新增待辦事項</h3>
+                                        <button onClick={() => setShowTodoForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <form onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const formData = new FormData(e.target);
+                                        const newTodo = {
+                                            id: Date.now(),
+                                            text: formData.get('text'),
+                                            completed: false,
+                                            priority: formData.get('priority') === 'on'
+                                        };
+                                        setSharedTodoItems([...sharedTodoItems, newTodo]);
+                                        setShowTodoForm(false);
+                                    }}>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    項目名稱 *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="text"
+                                                    required
+                                                    placeholder="例如: 訂機票"
+                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="flex items-center gap-3 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        name="priority"
+                                                        className="w-5 h-5 text-red-600"
+                                                    />
+                                                    <span className="text-sm font-medium text-gray-700">
+                                                        標記為優先事項 ⭐
+                                                    </span>
+                                                </label>
+                                            </div>
                                         </div>
-                                    </>
-                                )}
+
+                                        <div className="flex gap-3 mt-6">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowTodoForm(false)}
+                                                className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+                                            >
+                                                取消
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                                            >
+                                                確認
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         )}
-                    </div>
 
-                    {/* 待辦清單表單彈窗 */}
-                    {showTodoForm && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-bold">新增待辦事項</h3>
-                                    <button onClick={() => setShowTodoForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
+                        {/* 整理行李表單彈窗 */}
+                        {showPackingForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-bold">新增行李項目</h3>
+                                        <button onClick={() => setShowPackingForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
 
-                                <form onSubmit={(e) => {
-                                    e.preventDefault();
-                                    const formData = new FormData(e.target);
-                                    const newTodo = {
-                                        id: Date.now(),
-                                        text: formData.get('text'),
-                                        completed: false,
-                                        priority: formData.get('priority') === 'on'
-                                    };
-                                    setSharedTodoItems([...sharedTodoItems, newTodo]);
-                                    setShowTodoForm(false);
-                                }}>
-                                    <div className="space-y-4">
-                                        <div>
+                                    <form onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const formData = new FormData(e.target);
+                                        const newItem = {
+                                            id: Date.now(),
+                                            text: formData.get('text'),
+                                            completed: false
+                                        };
+                                        setPersonalPackingItems([...personalPackingItems, newItem]);
+                                        setShowPackingForm(false);
+                                    }}>
+                                        <div className="mb-6">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 項目名稱 *
                                             </label>
@@ -1078,507 +1183,444 @@ const settlements = calculateSettlements(memberDebts);
                                                 type="text"
                                                 name="text"
                                                 required
-                                                placeholder="例如: 訂機票"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="flex items-center gap-3 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    name="priority"
-                                                    className="w-5 h-5 text-red-600"
-                                                />
-                                                <span className="text-sm font-medium text-gray-700">
-                                                    標記為優先事項 ⭐
-                                                </span>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-3 mt-6">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowTodoForm(false)}
-                                            className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
-                                        >
-                                            取消
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-                                        >
-                                            確認
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 整理行李表單彈窗 */}
-                    {showPackingForm && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-bold">新增行李項目</h3>
-                                    <button onClick={() => setShowPackingForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                <form onSubmit={(e) => {
-                                    e.preventDefault();
-                                    const formData = new FormData(e.target);
-                                    const newItem = {
-                                        id: Date.now(),
-                                        text: formData.get('text'),
-                                        completed: false
-                                    };
-                                    setPersonalPackingItems([...personalPackingItems, newItem]);
-                                    setShowPackingForm(false);
-                                }}>
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            項目名稱 *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="text"
-                                            required
-                                            placeholder="例如: 充電線"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        />
-                                    </div>
-
-                                    <div className="flex gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPackingForm(false)}
-                                            className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
-                                        >
-                                            取消
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
-                                        >
-                                            確認
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 個人記帳表單彈窗 */}
-                    {showPersonalExpenseForm && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-bold">新增支出</h3>
-                                    <button onClick={() => setShowPersonalExpenseForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                <form onSubmit={(e) => {
-                                    e.preventDefault();
-                                    const formData = new FormData(e.target);
-                                    const newExpense = {
-                                        id: Date.now(),
-                                        name: formData.get('name'),
-                                        amount: parseFloat(formData.get('amount')),
-                                        category: formData.get('category')
-                                    };
-                                    setExpenses([...expenses, newExpense]);
-                                    setShowPersonalExpenseForm(false);
-                                }}>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                項目名稱 *
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="name"
-                                                required
-                                                placeholder="例如: 午餐"
+                                                placeholder="例如: 充電線"
                                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             />
                                         </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                金額 (TWD) *
-                                            </label>
-                                            <input
-                                                type="number"
-                                                name="amount"
-                                                required
-                                                min="0"
-                                                step="0.01"
-                                                placeholder="例如: 150"
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                類別 *
-                                            </label>
-                                            <select
-                                                name="category"
-                                                required
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        <div className="flex gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPackingForm(false)}
+                                                className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
                                             >
-                                                <option value="">選擇類別</option>
-                                                <option value="交通">交通</option>
-                                                <option value="餐飲">餐飲</option>
-                                                <option value="住宿">住宿</option>
-                                                <option value="門票">門票</option>
-                                                <option value="購物">購物</option>
-                                                <option value="其他">其他</option>
-                                            </select>
+                                                取消
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                                            >
+                                                確認
+                                            </button>
                                         </div>
-                                    </div>
-
-                                    <div className="flex gap-3 mt-6">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPersonalExpenseForm(false)}
-                                            className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
-                                        >
-                                            取消
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
-                                        >
-                                            確認
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 行程表單彈窗 */}
-                    {showItineraryForm && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-2xl font-bold">
-                                        {editingItinerary ? '編輯行程' : '新增行程'}
-                                    </h3>
-                                    <button 
-                                        onClick={() => {
-                                            setShowItineraryForm(false);
-                                            setEditingItinerary(null);
-                                        }} 
-                                        className="p-2 hover:bg-gray-100 rounded-lg"
-                                    >
-                                        <X className="w-6 h-6" />
-                                    </button>
+                                    </form>
                                 </div>
+                            </div>
+                        )}
 
-                                <form onSubmit={handleItinerarySubmit} className="space-y-4">
-                                    <div className="grid md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                日期 *
-                                            </label>
-                                            <input
-                                                type="date"
-                                                name="date"
-                                                defaultValue={editingItinerary?.date || ''}
-                                                required
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            />
+                        {/* 個人記帳表單彈窗 */}
+                        {showPersonalExpenseForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-bold">新增支出</h3>
+                                        <button onClick={() => setShowPersonalExpenseForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <form onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const formData = new FormData(e.target);
+                                        const newExpense = {
+                                            id: Date.now(),
+                                            name: formData.get('name'),
+                                            amount: parseFloat(formData.get('amount')),
+                                            category: formData.get('category')
+                                        };
+                                        setExpenses([...expenses, newExpense]);
+                                        setShowPersonalExpenseForm(false);
+                                    }}>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    項目名稱 *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="name"
+                                                    required
+                                                    placeholder="例如: 午餐"
+                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    金額 (TWD) *
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    name="amount"
+                                                    required
+                                                    min="0"
+                                                    step="0.01"
+                                                    placeholder="例如: 150"
+                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    類別 *
+                                                </label>
+                                                <select
+                                                    name="category"
+                                                    required
+                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                >
+                                                    <option value="">選擇類別</option>
+                                                    <option value="交通">交通</option>
+                                                    <option value="餐飲">餐飲</option>
+                                                    <option value="住宿">住宿</option>
+                                                    <option value="門票">門票</option>
+                                                    <option value="購物">購物</option>
+                                                    <option value="其他">其他</option>
+                                                </select>
+                                            </div>
                                         </div>
 
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                時間 *
-                                            </label>
-                                            <input
-                                                type="time"
-                                                name="time"
-                                                defaultValue={editingItinerary?.time || ''}
-                                                required
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                            />
+                                        <div className="flex gap-3 mt-6">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPersonalExpenseForm(false)}
+                                                className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+                                            >
+                                                取消
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                                            >
+                                                確認
+                                            </button>
                                         </div>
-                                    </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            行程名稱 *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="title"
-                                            defaultValue={editingItinerary?.title || ''}
-                                            required
-                                            placeholder="例如: 東京淺草寺"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            地點 *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="location"
-                                            defaultValue={editingItinerary?.location || ''}
-                                            required
-                                            placeholder="例如: 東京都台東區淺草2-3-1"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            描述 *
-                                        </label>
-                                        <textarea
-                                            name="description"
-                                            defaultValue={editingItinerary?.description || ''}
-                                            required
-                                            rows="3"
-                                            placeholder="例如: 東京最古老的寺廟，必訪景點"
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Google Maps 連結 (選填)
-                                        </label>
-                                        <input
-                                            type="url"
-                                            name="mapUrl"
-                                            defaultValue={editingItinerary?.mapUrl || ''}
-                                            placeholder="https://maps.google.com/?q=..."
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            網站連結 (選填)
-                                        </label>
-                                        <input
-                                            type="url"
-                                            name="websiteUrl"
-                                            defaultValue={editingItinerary?.websiteUrl || ''}
-                                            placeholder="https://..."
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
-                                    </div>
-
-                                    <div className="flex gap-3 pt-4">
-                                        <button
-                                            type="button"
+                        {/* 行程表單彈窗 */}
+                        {showItineraryForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-2xl font-bold">
+                                            {editingItinerary ? '編輯行程' : '新增行程'}
+                                        </h3>
+                                        <button 
                                             onClick={() => {
                                                 setShowItineraryForm(false);
                                                 setEditingItinerary(null);
-                                            }}
-                                            className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+                                            }} 
+                                            className="p-2 hover:bg-gray-100 rounded-lg"
                                         >
-                                            取消
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-                                        >
-                                            {editingItinerary ? '儲存' : '確認'}
+                                            <X className="w-6 h-6" />
                                         </button>
                                     </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
 
-                    {/* 成員選擇彈窗 */}
-                    {showMemberSelect && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-bold">選擇分帳成員</h3>
-                                    <button onClick={() => setShowMemberSelect(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                <div className="space-y-3 mb-6">
-                                    {getAllUsers().map(username => (
-                                        <label key={username} className="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
-                                            <input
-                                                type="checkbox"
-                                                checked={splitBillData.members.includes(username)}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setSplitBillData({
-                                                            ...splitBillData,
-                                                            members: [...splitBillData.members, username]
-                                                        });
-                                                    } else {
-                                                        setSplitBillData({
-                                                            ...splitBillData,
-                                                            members: splitBillData.members.filter(m => m !== username)
-                                                        });
-                                                    }
-                                                }}
-                                                className="w-5 h-5 text-purple-600"
-                                            />
-                                            <div className="flex items-center gap-3 flex-1">
-                                                <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                                                    {username[0].toUpperCase()}
-                                                </div>
-                                                <span className="font-semibold">{username}</span>
+                                    <form onSubmit={handleItinerarySubmit} className="space-y-4">
+                                        <div className="grid md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    日期 *
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    name="date"
+                                                    defaultValue={editingItinerary?.date || ''}
+                                                    required
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
                                             </div>
-                                        </label>
-                                    ))}
-                                </div>
 
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        公費額度 (每人)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={splitBillData.publicBudget}
-                                        onChange={(e) => setSplitBillData({
-                                            ...splitBillData,
-                                            publicBudget: parseInt(e.target.value) || 0
-                                        })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                        placeholder="例如: 3280"
-                                    />
-                                </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    時間 *
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    name="time"
+                                                    defaultValue={editingItinerary?.time || ''}
+                                                    required
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                        </div>
 
-                                <button
-                                    onClick={() => setShowMemberSelect(false)}
-                                    className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold"
-                                >
-                                    確認
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 新增支出彈窗 */}
-                    {showExpenseForm && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-2xl max-w-md w-full p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-bold">新增支出</h3>
-                                    <button onClick={() => setShowExpenseForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                <form onSubmit={(e) => {
-                                    e.preventDefault();
-                                    const formData = new FormData(e.target);
-                                    const expense = {
-                                        id: Date.now(),
-                                        item: formData.get('item'),
-                                        amount: parseFloat(formData.get('amount')),
-                                        payer: formData.get('payer'),
-                                        category: formData.get('category')
-                                    };
-                                    
-                                    setSplitBillData({
-                                        ...splitBillData,
-                                        expenses: [...splitBillData.expenses, expense]
-                                    });
-                                    setShowExpenseForm(false);
-                                }}>
-                                    <div className="space-y-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                項目名稱
+                                                行程名稱 *
                                             </label>
                                             <input
                                                 type="text"
-                                                name="item"
+                                                name="title"
+                                                defaultValue={editingItinerary?.title || ''}
                                                 required
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                placeholder="例如: 飯店住宿"
+                                                placeholder="例如: 東京淺草寺"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             />
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                金額 (TWD)
+                                                地點 *
                                             </label>
                                             <input
-                                                type="number"
-                                                name="amount"
+                                                type="text"
+                                                name="location"
+                                                defaultValue={editingItinerary?.location || ''}
                                                 required
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                placeholder="例如: 5000"
+                                                placeholder="例如: 東京都台東區淺草2-3-1"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             />
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                付款人
+                                                描述 *
                                             </label>
-                                            <select
-                                                name="payer"
+                                            <textarea
+                                                name="description"
+                                                defaultValue={editingItinerary?.description || ''}
                                                 required
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            >
-                                                <option value="">選擇付款人</option>
-                                                {splitBillData.members.map(member => (
-                                                    <option key={member} value={member}>{member}</option>
-                                                ))}
-                                            </select>
+                                                rows="3"
+                                                placeholder="例如: 東京最古老的寺廟，必訪景點"
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            />
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                類別
+                                                Google Maps 連結 (選填)
                                             </label>
-                                            <select
-                                                name="category"
-                                                required
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                            >
-                                                <option value="">選擇類別</option>
-                                                <option value="交通">交通</option>
-                                                <option value="住宿">住宿</option>
-                                                <option value="餐飲">餐飲</option>
-                                                <option value="門票">門票</option>
-                                                <option value="購物">購物</option>
-                                                <option value="其他">其他</option>
-                                            </select>
+                                            <input
+                                                type="url"
+                                                name="mapUrl"
+                                                defaultValue={editingItinerary?.mapUrl || ''}
+                                                placeholder="https://maps.google.com/?q=..."
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            />
                                         </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                網站連結 (選填)
+                                            </label>
+                                            <input
+                                                type="url"
+                                                name="websiteUrl"
+                                                defaultValue={editingItinerary?.websiteUrl || ''}
+                                                placeholder="https://..."
+                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+
+                                        <div className="flex gap-3 pt-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowItineraryForm(false);
+                                                    setEditingItinerary(null);
+                                                }}
+                                                className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+                                            >
+                                                取消
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                                            >
+                                                {editingItinerary ? '儲存' : '確認'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 成員選擇彈窗 */}
+                        {showMemberSelect && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-bold">選擇分帳成員</h3>
+                                        <button onClick={() => setShowMemberSelect(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-3 mb-6">
+                                        {getAllUsers().map(username => (
+                                            <label key={username} className="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={splitBillData.members.includes(username)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSplitBillData({
+                                                                ...splitBillData,
+                                                                members: [...splitBillData.members, username]
+                                                            });
+                                                        } else {
+                                                            setSplitBillData({
+                                                                ...splitBillData,
+                                                                members: splitBillData.members.filter(m => m !== username)
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="w-5 h-5 text-purple-600"
+                                                />
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                                                        {username[0].toUpperCase()}
+                                                    </div>
+                                                    <span className="font-semibold">{username}</span>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            公費額度 (每人)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={splitBillData.publicBudget}
+                                            onChange={(e) => setSplitBillData({
+                                                ...splitBillData,
+                                                publicBudget: parseInt(e.target.value) || 0
+                                            })}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                            placeholder="例如: 3280"
+                                        />
                                     </div>
 
                                     <button
-                                        type="submit"
-                                        className="w-full mt-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                                        onClick={() => setShowMemberSelect(false)}
+                                        className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold"
                                     >
-                                        新增支出
+                                        確認
                                     </button>
-                                </form>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
+                        )}
 
-        // Render
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<TravelApp />);
+                        {/* 新增支出彈窗 */}
+                        {showExpenseForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-xl font-bold">新增支出</h3>
+                                        <button onClick={() => setShowExpenseForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <form onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const formData = new FormData(e.target);
+                                        const expense = {
+                                            id: Date.now(),
+                                            item: formData.get('item'),
+                                            amount: parseFloat(formData.get('amount')),
+                                            payer: formData.get('payer'),
+                                            category: formData.get('category')
+                                        };
+                                        
+                                        setSplitBillData({
+                                            ...splitBillData,
+                                            expenses: [...splitBillData.expenses, expense]
+                                        });
+                                        setShowExpenseForm(false);
+                                    }}>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    項目名稱
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="item"
+                                                    required
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    placeholder="例如: 飯店住宿"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    金額 (TWD)
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    name="amount"
+                                                    required
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    placeholder="例如: 5000"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    付款人
+                                                </label>
+                                                <select
+                                                    name="payer"
+                                                    required
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                >
+                                                    <option value="">選擇付款人</option>
+                                                    {splitBillData.members.map(member => (
+                                                        <option key={member} value={member}>{member}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    類別
+                                                </label>
+                                                <select
+                                                    name="category"
+                                                    required
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                >
+                                                    <option value="">選擇類別</option>
+                                                    <option value="交通">交通</option>
+                                                    <option value="住宿">住宿</option>
+                                                    <option value="餐飲">餐飲</option>
+                                                    <option value="門票">門票</option>
+                                                    <option value="購物">購物</option>
+                                                    <option value="其他">其他</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="submit"
+                                            className="w-full mt-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                                        >
+                                            新增支出
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            // Render
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<TravelApp />);
+            
+        } catch (error) {
+            console.error('應用程式錯誤:', error);
+            document.getElementById('root').innerHTML = 
+                '<div style="padding:20px;color:red;font-family:monospace;">發生錯誤: ' + error.message + '<br><br>請查看控制台以獲取更多資訊。</div>';
+        }
     </script>
 </body>
 </html>
