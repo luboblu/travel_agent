@@ -2613,21 +2613,32 @@ useEffect(() => {
             const [isLoading, setIsLoading] = useState(true);
 
             // 檢查是否有儲存的登入狀態
+            // ✅ 這是新的，使用 firebaseService 並且正確處理非同步
             useEffect(() => {
-    const savedUser = safeLocalStorage.getItem('currentUser');
-    if (savedUser && savedUser.username) {
-        const allUsers = safeLocalStorage.getItem('users', {});
-        if (allUsers && allUsers[savedUser.username]) {
-            setUser(allUsers[savedUser.username]);
-        } else {
-            // 用戶被刪除，清除登入狀態
-            localStorage.removeItem('currentUser');
-        }
-    }
-    setIsLoading(false);
-}, []);
+                const checkLogin = async () => { // 1. 建立一個 async 函式
+                    try {
+                        const savedUser = await firebaseService.getItem('currentUser'); // 2. 用 await 讀取
+                        
+                        if (savedUser && savedUser.username) {
+                            // 這裡我們還需要讀取完整用戶資料，確保資料是最新的
+                            const allUsers = await firebaseService.getItem('users', {});
+                            if (allUsers && allUsers[savedUser.username]) {
+                                setUser(allUsers[savedUser.username]);
+                            } else {
+                                localStorage.removeItem('currentUser'); // 清除無效紀錄
+                            }
+                        }
+                    } catch (error) {
+                        console.error("自動登入檢查失敗:", error);
+                    } finally {
+                        setIsLoading(false); // 3. 無論成功失敗，最後都要關閉 Loading
+                    }
+                };
+                
+                checkLogin(); // 4. 執行上面那個函式
+            }, []);
 
-            const handleLogin = (userData) => {
+            const handleLogin = async (userData) => {
                 setUser(userData);
                 safeLocalStorage.setItem('currentUser', userData);
             };
