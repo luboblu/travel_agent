@@ -270,6 +270,7 @@
                 // 分帳彈窗
                 const [showMemberSelect, setShowMemberSelect] = useState(false);
                 const [showExpenseForm, setShowExpenseForm] = useState(false);
+                const [editingSplitExpense, setEditingSplitExpense] = useState(null);
 
                 // 待辦清單表單
                 const [showTodoForm, setShowTodoForm] = useState(false);
@@ -279,6 +280,7 @@
 
                 // 記帳表單
                 const [showPersonalExpenseForm, setShowPersonalExpenseForm] = useState(false);
+                const [editingPersonalExpense, setEditingPersonalExpense] = useState(null);
                 // 匯率相關 state
                 const [exchangeRates, setExchangeRates] = useState({});
                 const [lastUpdated, setLastUpdated] = useState('');
@@ -1052,13 +1054,39 @@
 
                                     <div className="space-y-3 mb-6">
                                         {expenses.map(expense => (
-                                            <div key={expense.id} className="flex justify-between items-center p-5 border-2 border-gray-200 rounded-xl hover:border-green-300 transition-colors">
+                                            <div key={expense.id} className="flex justify-between items-center p-5 border-2 border-gray-200 rounded-xl hover:border-green-300 hover:shadow-md transition-all">
                                                 <div className="flex-1">
                                                     <div className="font-bold text-lg">{expense.name}</div>
                                                     <div className="text-sm text-gray-600">{expense.category}</div>
                                                 </div>
-                                                <div className="text-xl font-bold text-green-600">
-                                                    NT$ {expense.amount.toLocaleString()}
+                                                <div className="flex items-center gap-3">
+                                                    <div className="text-xl font-bold text-green-600">
+                                                        NT$ {expense.amount.toLocaleString()}
+                                                    </div>
+                                                    {/* 編輯和刪除按鈕 */}
+                                                    <div className="flex gap-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingPersonalExpense(expense);
+                                                                setShowPersonalExpenseForm(true);
+                                                            }}
+                                                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                            title="編輯"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm(`確定要刪除「${expense.name}」這筆記錄嗎？`)) {
+                                                                    setExpenses(expenses.filter(e => e.id !== expense.id));
+                                                                }
+                                                            }}
+                                                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                                                            title="刪除"
+                                                        >
+                                                            <Trash className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -1069,7 +1097,10 @@
                                     )}
 
                                     <button
-                                        onClick={() => setShowPersonalExpenseForm(true)}
+                                        onClick={() => {
+                                            setEditingPersonalExpense(null);
+                                            setShowPersonalExpenseForm(true);
+                                        }}
                                         className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 font-semibold text-lg"
                                     >
                                         <Plus className="w-5 h-5" />
@@ -1218,7 +1249,7 @@
                                                             const sharePerPerson = expense.amount / participants.length;
                                                             
                                                             return (
-                                                                <div key={expense.id} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
+                                                                <div key={expense.id} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
                                                                     <div className="flex justify-between items-start mb-3">
                                                                         <div className="flex-1">
                                                                             <div className="font-semibold text-lg">{expense.item}</div>
@@ -1226,8 +1257,37 @@
                                                                                 {expense.payer} 支付 • {expense.category}
                                                                             </div>
                                                                         </div>
-                                                                        <div className="text-xl font-bold text-blue-600">
-                                                                            NT$ {expense.amount.toLocaleString()}
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="text-xl font-bold text-blue-600">
+                                                                                NT$ {expense.amount.toLocaleString()}
+                                                                            </div>
+                                                                            {/* 編輯和刪除按鈕 */}
+                                                                            <div className="flex gap-1">
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setEditingSplitExpense(expense);
+                                                                                        setShowExpenseForm(true);
+                                                                                    }}
+                                                                                    className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                                                    title="編輯"
+                                                                                >
+                                                                                    <Edit className="w-4 h-4" />
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        if (confirm(`確定要刪除「${expense.item}」這筆支出嗎？`)) {
+                                                                                            setSplitBillData({
+                                                                                                ...splitBillData,
+                                                                                                expenses: splitBillData.expenses.filter(e => e.id !== expense.id)
+                                                                                            });
+                                                                                        }
+                                                                                    }}
+                                                                                    className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                                                                                    title="刪除"
+                                                                                >
+                                                                                    <Trash className="w-4 h-4" />
+                                                                                </button>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     
@@ -1386,12 +1446,21 @@
                         )}
 
                         {/* 個人記帳表單彈窗 */}
+                        {/* 個人記帳表單彈窗 */}
                         {showPersonalExpenseForm && (
                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                                 <div className="bg-white rounded-2xl max-w-md w-full p-6">
                                     <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-xl font-bold">新增支出</h3>
-                                        <button onClick={() => setShowPersonalExpenseForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                        <h3 className="text-xl font-bold">
+                                            {editingPersonalExpense ? '編輯支出' : '新增支出'}
+                                        </h3>
+                                        <button 
+                                            onClick={() => {
+                                                setShowPersonalExpenseForm(false);
+                                                setEditingPersonalExpense(null);
+                                            }} 
+                                            className="p-2 hover:bg-gray-100 rounded-lg"
+                                        >
                                             <X className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -1399,14 +1468,25 @@
                                     <form onSubmit={(e) => {
                                         e.preventDefault();
                                         const formData = new FormData(e.target);
-                                        const newExpense = {
-                                            id: Date.now(),
+                                        const expenseData = {
+                                            id: editingPersonalExpense ? editingPersonalExpense.id : Date.now(),
                                             name: formData.get('name'),
                                             amount: parseFloat(formData.get('amount')),
                                             category: formData.get('category')
                                         };
-                                        setExpenses([...expenses, newExpense]);
+                                        
+                                        if (editingPersonalExpense) {
+                                            // 編輯模式：更新現有記錄
+                                            setExpenses(expenses.map(e => 
+                                                e.id === editingPersonalExpense.id ? expenseData : e
+                                            ));
+                                        } else {
+                                            // 新增模式：添加新記錄
+                                            setExpenses([...expenses, expenseData]);
+                                        }
+                                        
                                         setShowPersonalExpenseForm(false);
+                                        setEditingPersonalExpense(null);
                                     }}>
                                         <div className="space-y-4">
                                             <div>
@@ -1416,6 +1496,7 @@
                                                 <input
                                                     type="text"
                                                     name="name"
+                                                    defaultValue={editingPersonalExpense?.name || ''}
                                                     required
                                                     placeholder="例如: 午餐"
                                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -1429,6 +1510,7 @@
                                                 <input
                                                     type="number"
                                                     name="amount"
+                                                    defaultValue={editingPersonalExpense?.amount || ''}
                                                     required
                                                     min="0"
                                                     step="0.01"
@@ -1443,6 +1525,7 @@
                                                 </label>
                                                 <select
                                                     name="category"
+                                                    defaultValue={editingPersonalExpense?.category || ''}
                                                     required
                                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                                 >
@@ -1460,7 +1543,10 @@
                                         <div className="flex gap-3 mt-6">
                                             <button
                                                 type="button"
-                                                onClick={() => setShowPersonalExpenseForm(false)}
+                                                onClick={() => {
+                                                    setShowPersonalExpenseForm(false);
+                                                    setEditingPersonalExpense(null);
+                                                }}
                                                 className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
                                             >
                                                 取消
@@ -1469,7 +1555,7 @@
                                                 type="submit"
                                                 className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
                                             >
-                                                確認
+                                                {editingPersonalExpense ? '儲存變更' : '確認新增'}
                                             </button>
                                         </div>
                                     </form>
@@ -1684,13 +1770,21 @@
                             </div>
                         )}
 
-                        {/* 新增支出彈窗 */}
+                        {/* 新增/編輯支出彈窗 */}
                         {showExpenseForm && (
                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                                 <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
                                     <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-xl font-bold">新增支出</h3>
-                                        <button onClick={() => setShowExpenseForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                        <h3 className="text-xl font-bold">
+                                            {editingSplitExpense ? '編輯支出' : '新增支出'}
+                                        </h3>
+                                        <button 
+                                            onClick={() => {
+                                                setShowExpenseForm(false);
+                                                setEditingSplitExpense(null);
+                                            }} 
+                                            className="p-2 hover:bg-gray-100 rounded-lg"
+                                        >
                                             <X className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -1711,7 +1805,7 @@
                                         const finalParticipants = participants.length > 0 ? participants : splitBillData.members;
                                         
                                         const expense = {
-                                            id: Date.now(),
+                                            id: editingSplitExpense ? editingSplitExpense.id : Date.now(),
                                             item: formData.get('item'),
                                             amount: parseFloat(formData.get('amount')),
                                             payer: formData.get('payer'),
@@ -1719,11 +1813,24 @@
                                             participants: finalParticipants
                                         };
                                         
-                                        setSplitBillData({
-                                            ...splitBillData,
-                                            expenses: [...splitBillData.expenses, expense]
-                                        });
+                                        if (editingSplitExpense) {
+                                            // 編輯模式：更新現有支出
+                                            setSplitBillData({
+                                                ...splitBillData,
+                                                expenses: splitBillData.expenses.map(e => 
+                                                    e.id === editingSplitExpense.id ? expense : e
+                                                )
+                                            });
+                                        } else {
+                                            // 新增模式：添加新支出
+                                            setSplitBillData({
+                                                ...splitBillData,
+                                                expenses: [...splitBillData.expenses, expense]
+                                            });
+                                        }
+                                        
                                         setShowExpenseForm(false);
+                                        setEditingSplitExpense(null);
                                     }}>
                                         <div className="space-y-4">
                                             <div>
@@ -1733,6 +1840,7 @@
                                                 <input
                                                     type="text"
                                                     name="item"
+                                                    defaultValue={editingSplitExpense?.item || ''}
                                                     required
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                                     placeholder="例如: 飯店住宿"
@@ -1746,6 +1854,7 @@
                                                 <input
                                                     type="number"
                                                     name="amount"
+                                                    defaultValue={editingSplitExpense?.amount || ''}
                                                     required
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                                     placeholder="例如: 5000"
@@ -1758,6 +1867,7 @@
                                                 </label>
                                                 <select
                                                     name="payer"
+                                                    defaultValue={editingSplitExpense?.payer || ''}
                                                     required
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                                 >
@@ -1774,6 +1884,7 @@
                                                 </label>
                                                 <select
                                                     name="category"
+                                                    defaultValue={editingSplitExpense?.category || ''}
                                                     required
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                                                 >
@@ -1796,22 +1907,28 @@
                                                     💡 不選擇則預設所有成員平分
                                                 </div>
                                                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                                                    {splitBillData.members.map(member => (
-                                                        <label key={member} className="flex items-center gap-3 p-2 hover:bg-blue-100 rounded-lg cursor-pointer">
-                                                            <input
-                                                                type="checkbox"
-                                                                name={`participant_${member}`}
-                                                                defaultChecked
-                                                                className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                                                            />
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                                                                    {member[0].toUpperCase()}
+                                                    {splitBillData.members.map(member => {
+                                                        const isParticipant = editingSplitExpense 
+                                                            ? (editingSplitExpense.participants || splitBillData.members).includes(member)
+                                                            : true;
+                                                        
+                                                        return (
+                                                            <label key={member} className="flex items-center gap-3 p-2 hover:bg-blue-100 rounded-lg cursor-pointer">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    name={`participant_${member}`}
+                                                                    defaultChecked={isParticipant}
+                                                                    className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                                                />
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                                                        {member[0].toUpperCase()}
+                                                                    </div>
+                                                                    <span className="font-medium text-gray-800">{member}</span>
                                                                 </div>
-                                                                <span className="font-medium text-gray-800">{member}</span>
-                                                            </div>
-                                                        </label>
-                                                    ))}
+                                                            </label>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </div>
@@ -1820,7 +1937,7 @@
                                             type="submit"
                                             className="w-full mt-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
                                         >
-                                            新增支出
+                                            {editingSplitExpense ? '儲存變更' : '新增支出'}
                                         </button>
                                     </form>
                                 </div>
