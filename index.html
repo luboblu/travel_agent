@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>旅行規劃師 - 完整版</title>
+    <title>旅行規劃師 - Travel Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -29,27 +29,9 @@
             </svg>
         );
 
-        const CheckSquare = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-        );
-
         const Calendar = ({ className }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-        );
-
-        const DollarSign = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        );
-
-        const Users = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
         );
 
@@ -59,74 +41,35 @@
             </svg>
         );
 
+        const Edit = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+        );
+
+        const Trash = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+        );
+
         const LogOut = ({ className }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
         );
 
-        const X = ({ className }) => (
+        const ExternalLink = ({ className }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
         );
 
-        // 匯率換算功能
-        function CurrencyConverter() {
-            const [hkd, setHkd] = useState('');
-            const [twd, setTwd] = useState('');
-            const rate = 4.05; // HKD to TWD
-
-            const handleHkdChange = (value) => {
-                setHkd(value);
-                setTwd(value ? (parseFloat(value) * rate).toFixed(2) : '');
-            };
-
-            const handleTwdChange = (value) => {
-                setTwd(value);
-                setHkd(value ? (parseFloat(value) / rate).toFixed(2) : '');
-            };
-
-            return (
-                <div className="bg-white rounded-2xl shadow-lg p-8">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6">💱 匯率換算</h2>
-                    
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                港幣金額 (HKD)
-                            </label>
-                            <input
-                                type="number"
-                                value={hkd}
-                                onChange={(e) => handleHkdChange(e.target.value)}
-                                placeholder="輸入港幣..."
-                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                            />
-                        </div>
-
-                        <div className="text-center">
-                            <div className="inline-block bg-blue-100 text-blue-800 px-4 py-2 rounded-lg">
-                                當前匯率: 1 HKD = {rate} TWD
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                台幣金額 (TWD)
-                            </label>
-                            <input
-                                type="number"
-                                value={twd}
-                                onChange={(e) => handleTwdChange(e.target.value)}
-                                placeholder="輸入台幣..."
-                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                            />
-                        </div>
-                    </div>
-                </div>
-            );
-        }
+        const Users = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+        );
 
         // 登入頁面
         function LoginPage({ onLogin }) {
@@ -233,12 +176,20 @@
         // 主應用程式
         function TravelApp() {
             const [user, setUser] = useState(null);
-            const [activeTab, setActiveTab] = useState('checklist');
-            const [todoItems, setTodoItems] = useState([]);
-            const [packingItems, setPackingItems] = useState([]);
-            const [itinerary, setItinerary] = useState([]);
+            const [activeTab, setActiveTab] = useState('itinerary');
+            
+            // 共享資料（所有用戶看到相同內容）
+            const [sharedTodoItems, setSharedTodoItems] = useState([]);
+            const [sharedItinerary, setSharedItinerary] = useState([]);
+            
+            // 個人資料（每個用戶獨立）
+            const [personalPackingItems, setPersonalPackingItems] = useState([]);
             const [expenses, setExpenses] = useState([]);
             const [splitBill, setSplitBill] = useState({ members: [], expenses: [] });
+
+            // 編輯模式
+            const [editingItem, setEditingItem] = useState(null);
+            const [editText, setEditText] = useState('');
 
             // 初始化測試帳號
             useEffect(() => {
@@ -250,33 +201,58 @@
                 }
             }, []);
 
-            // 載入使用者資料
+            // 載入共享資料
+            useEffect(() => {
+                const sharedData = JSON.parse(localStorage.getItem('sharedData') || '{}');
+                setSharedTodoItems(sharedData.todoItems || [
+                    { id: 1, text: '訂機票', completed: true, priority: true },
+                    { id: 2, text: '訂飯店', completed: true, priority: true },
+                    { id: 3, text: '申請港簽', completed: false, priority: true }
+                ]);
+                setSharedItinerary(sharedData.itinerary || [
+                    {
+                        id: 1,
+                        day: 1,
+                        date: '2026-02-01',
+                        title: '東京淺草寺',
+                        time: '09:00',
+                        location: '東京都台東區淺草2-3-1',
+                        description: '東京最古老的寺廟，必訪景點',
+                        mapUrl: 'https://maps.google.com/?q=淺草寺',
+                        websiteUrl: 'https://www.senso-ji.jp/',
+                        category: 'attraction'
+                    }
+                ]);
+            }, []);
+
+            // 載入個人資料
             useEffect(() => {
                 if (user) {
                     const userData = JSON.parse(localStorage.getItem(`userData_${user.username}`) || '{}');
-                    setTodoItems(userData.todoItems || [
-                        { id: 1, text: '訂機票', completed: true, priority: true },
-                        { id: 2, text: '訂飯店', completed: true, priority: true },
-                        { id: 3, text: '申請港簽', completed: false, priority: true }
-                    ]);
-                    setPackingItems(userData.packingItems || [
+                    setPersonalPackingItems(userData.packingItems || [
                         { id: 1, text: '充電線', completed: false },
                         { id: 2, text: '行充', completed: false },
                         { id: 3, text: '梳子', completed: false }
                     ]);
-                    setItinerary(userData.itinerary || []);
                     setExpenses(userData.expenses || []);
                     setSplitBill(userData.splitBill || { members: [], expenses: [] });
                 }
             }, [user]);
 
-            // 儲存使用者資料
-            const saveUserData = () => {
+            // 儲存共享資料
+            const saveSharedData = () => {
+                const sharedData = {
+                    todoItems: sharedTodoItems,
+                    itinerary: sharedItinerary
+                };
+                localStorage.setItem('sharedData', JSON.stringify(sharedData));
+            };
+
+            // 儲存個人資料
+            const savePersonalData = () => {
                 if (user) {
                     const userData = {
-                        todoItems,
-                        packingItems,
-                        itinerary,
+                        packingItems: personalPackingItems,
                         expenses,
                         splitBill
                     };
@@ -285,19 +261,23 @@
             };
 
             useEffect(() => {
-                saveUserData();
-            }, [todoItems, packingItems, itinerary, expenses, splitBill]);
+                saveSharedData();
+            }, [sharedTodoItems, sharedItinerary]);
+
+            useEffect(() => {
+                savePersonalData();
+            }, [personalPackingItems, expenses, splitBill]);
 
             if (!user) {
                 return <LoginPage onLogin={setUser} />;
             }
 
-            const todoProgress = todoItems.length > 0 
-                ? Math.round((todoItems.filter(item => item.completed).length / todoItems.length) * 100)
+            const todoProgress = sharedTodoItems.length > 0 
+                ? Math.round((sharedTodoItems.filter(item => item.completed).length / sharedTodoItems.length) * 100)
                 : 0;
 
-            const packingProgress = packingItems.length > 0
-                ? Math.round((packingItems.filter(item => item.completed).length / packingItems.length) * 100)
+            const packingProgress = personalPackingItems.length > 0
+                ? Math.round((personalPackingItems.filter(item => item.completed).length / personalPackingItems.length) * 100)
                 : 0;
 
             return (
@@ -335,10 +315,10 @@
                     <div className="max-w-7xl mx-auto px-4 py-6">
                         <div className="bg-white rounded-xl shadow-sm p-2 flex gap-2 overflow-x-auto">
                             {[
-                                { id: 'checklist', name: '準備清單', icon: CheckSquare },
                                 { id: 'itinerary', name: '行程規劃', icon: Calendar },
-                                { id: 'expenses', name: '記帳本', icon: DollarSign },
-                                { id: 'currency', name: '匯率換算', icon: DollarSign },
+                                { id: 'checklist', name: '準備清單', icon: '📋' },
+                                { id: 'currency', name: '匯率換算', icon: '💱' },
+                                { id: 'expenses', name: '記帳本', icon: '💰' },
                                 { id: 'split', name: '分帳本', icon: Users }
                             ].map(tab => (
                                 <button
@@ -350,7 +330,11 @@
                                             : 'text-gray-600 hover:bg-gray-100'
                                     }`}
                                 >
-                                    <tab.icon className="w-4 h-4" />
+                                    {typeof tab.icon === 'string' ? (
+                                        <span>{tab.icon}</span>
+                                    ) : (
+                                        <tab.icon className="w-4 h-4" />
+                                    )}
                                     {tab.name}
                                 </button>
                             ))}
@@ -359,10 +343,119 @@
 
                     {/* Main Content */}
                     <div className="max-w-7xl mx-auto px-4 pb-12">
+                        {/* 行程規劃 */}
+                        {activeTab === 'itinerary' && (
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-2xl shadow-lg p-8">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-gray-800">🗓️ 行程規劃</h2>
+                                        {user.role === 'admin' && (
+                                            <button
+                                                onClick={() => {
+                                                    const title = prompt('行程名稱:');
+                                                    if (!title) return;
+                                                    const date = prompt('日期 (YYYY-MM-DD):');
+                                                    const time = prompt('時間 (HH:MM):');
+                                                    const location = prompt('地點:');
+                                                    const description = prompt('描述:');
+                                                    const mapUrl = prompt('Google Maps 連結:');
+                                                    const websiteUrl = prompt('網站連結:');
+                                                    
+                                                    setSharedItinerary([...sharedItinerary, {
+                                                        id: Date.now(),
+                                                        day: sharedItinerary.length + 1,
+                                                        date,
+                                                        title,
+                                                        time,
+                                                        location,
+                                                        description,
+                                                        mapUrl,
+                                                        websiteUrl,
+                                                        category: 'attraction'
+                                                    }]);
+                                                }}
+                                                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                                新增行程
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        {sharedItinerary.map(item => (
+                                            <div key={item.id} className="border-2 border-blue-200 rounded-xl p-6 hover:shadow-lg transition-all">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
+                                                                Day {item.day}
+                                                            </span>
+                                                            <span className="text-gray-600">{item.date}</span>
+                                                            <span className="text-gray-600">{item.time}</span>
+                                                        </div>
+                                                        <h3 className="text-xl font-bold text-gray-800 mb-2">{item.title}</h3>
+                                                        <p className="text-gray-600 mb-2">📍 {item.location}</p>
+                                                        <p className="text-gray-700">{item.description}</p>
+                                                        
+                                                        <div className="flex gap-3 mt-4">
+                                                            {item.mapUrl && (
+                                                                <a
+                                                                    href={item.mapUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                                                                >
+                                                                    <MapPin className="w-4 h-4" />
+                                                                    開啟地圖
+                                                                    <ExternalLink className="w-3 h-3" />
+                                                                </a>
+                                                            )}
+                                                            {item.websiteUrl && (
+                                                                <a
+                                                                    href={item.websiteUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                                                >
+                                                                    查看網站
+                                                                    <ExternalLink className="w-3 h-3" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {user.role === 'admin' && (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('確定要刪除此行程嗎？')) {
+                                                                    setSharedItinerary(sharedItinerary.filter(i => i.id !== item.id));
+                                                                }
+                                                            }}
+                                                            className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                                                        >
+                                                            <Trash className="w-5 h-5" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {sharedItinerary.length === 0 && (
+                                        <p className="text-gray-400 text-center py-12">
+                                            {user.role === 'admin' 
+                                                ? '尚未新增行程，點擊上方按鈕開始規劃！' 
+                                                : '目前還沒有行程規劃'}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* 準備清單 */}
                         {activeTab === 'checklist' && (
                             <div className="space-y-6">
-                                {/* 待辦事項 */}
+                                {/* 待辦清單 - 共享 */}
                                 <div className="bg-white rounded-2xl shadow-lg p-8">
                                     <div className="flex justify-between items-center mb-4">
                                         <h2 className="text-2xl font-bold text-gray-800">📋 待辦清單 TO-DO</h2>
@@ -376,46 +469,99 @@
                                     </div>
                                     
                                     <div className="space-y-3 mb-4">
-                                        {todoItems.map(item => (
-                                            <div key={item.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                                        {sharedTodoItems.map(item => (
+                                            <div key={item.id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                                                 <input
                                                     type="checkbox"
                                                     checked={item.completed}
                                                     onChange={() => {
-                                                        setTodoItems(todoItems.map(i => 
+                                                        setSharedTodoItems(sharedTodoItems.map(i => 
                                                             i.id === item.id ? { ...i, completed: !i.completed } : i
                                                         ));
                                                     }}
                                                     className="w-5 h-5 text-blue-600"
                                                 />
-                                                <span className={item.completed ? 'line-through text-gray-400' : ''}>
-                                                    {item.text}
-                                                </span>
-                                                {item.priority && <span className="text-red-500">⭐</span>}
+                                                {editingItem === item.id ? (
+                                                    <input
+                                                        type="text"
+                                                        value={editText}
+                                                        onChange={(e) => setEditText(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                setSharedTodoItems(sharedTodoItems.map(i =>
+                                                                    i.id === item.id ? { ...i, text: editText } : i
+                                                                ));
+                                                                setEditingItem(null);
+                                                            }
+                                                        }}
+                                                        className="flex-1 px-3 py-2 border border-blue-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <span className={`flex-1 ${item.completed ? 'line-through text-gray-400' : ''}`}>
+                                                        {item.text}
+                                                    </span>
+                                                )}
+                                                {item.priority && <span className="text-red-500 text-xl">⭐</span>}
+                                                {user.role === 'admin' && (
+                                                    <div className="flex gap-2">
+                                                        {editingItem === item.id ? (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSharedTodoItems(sharedTodoItems.map(i =>
+                                                                        i.id === item.id ? { ...i, text: editText } : i
+                                                                    ));
+                                                                    setEditingItem(null);
+                                                                }}
+                                                                className="text-green-600 hover:bg-green-50 p-2 rounded-lg"
+                                                            >
+                                                                ✓
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingItem(item.id);
+                                                                    setEditText(item.text);
+                                                                }}
+                                                                className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => setSharedTodoItems(sharedTodoItems.filter(i => i.id !== item.id))}
+                                                            className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                                                        >
+                                                            <Trash className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
 
-                                    <button
-                                        onClick={() => {
-                                            const text = prompt('新增待辦事項:');
-                                            if (text) {
-                                                setTodoItems([...todoItems, {
-                                                    id: Date.now(),
-                                                    text,
-                                                    completed: false,
-                                                    priority: false
-                                                }]);
-                                            }
-                                        }}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        新增項目
-                                    </button>
+                                    {user.role === 'admin' && (
+                                        <button
+                                            onClick={() => {
+                                                const text = prompt('新增待辦事項:');
+                                                if (text) {
+                                                    setSharedTodoItems([...sharedTodoItems, {
+                                                        id: Date.now(),
+                                                        text,
+                                                        completed: false,
+                                                        priority: false
+                                                    }]);
+                                                }
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            新增項目
+                                        </button>
+                                    )}
                                 </div>
 
-                                {/* 整理行李 */}
+                                {/* 整理行李 - 個人 */}
                                 <div className="bg-white rounded-2xl shadow-lg p-8">
                                     <div className="flex justify-between items-center mb-4">
                                         <h2 className="text-2xl font-bold text-gray-800">🎒 整理行李 PACKING</h2>
@@ -429,21 +575,27 @@
                                     </div>
                                     
                                     <div className="grid md:grid-cols-2 gap-3 mb-4">
-                                        {packingItems.map(item => (
-                                            <div key={item.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                                        {personalPackingItems.map(item => (
+                                            <div key={item.id} className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
                                                 <input
                                                     type="checkbox"
                                                     checked={item.completed}
                                                     onChange={() => {
-                                                        setPackingItems(packingItems.map(i => 
+                                                        setPersonalPackingItems(personalPackingItems.map(i => 
                                                             i.id === item.id ? { ...i, completed: !i.completed } : i
                                                         ));
                                                     }}
                                                     className="w-5 h-5 text-green-600"
                                                 />
-                                                <span className={item.completed ? 'line-through text-gray-400' : ''}>
+                                                <span className={`flex-1 ${item.completed ? 'line-through text-gray-400' : ''}`}>
                                                     {item.text}
                                                 </span>
+                                                <button
+                                                    onClick={() => setPersonalPackingItems(personalPackingItems.filter(i => i.id !== item.id))}
+                                                    className="text-red-500 hover:bg-red-50 p-2 rounded-lg"
+                                                >
+                                                    <Trash className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
@@ -452,7 +604,7 @@
                                         onClick={() => {
                                             const text = prompt('新增行李項目:');
                                             if (text) {
-                                                setPackingItems([...packingItems, {
+                                                setPersonalPackingItems([...personalPackingItems, {
                                                     id: Date.now(),
                                                     text,
                                                     completed: false
@@ -468,15 +620,43 @@
                             </div>
                         )}
 
-                        {/* 行程規劃 */}
-                        {activeTab === 'itinerary' && (
+                        {/* 匯率換算 - 日本 */}
+                        {activeTab === 'currency' && (
                             <div className="bg-white rounded-2xl shadow-lg p-8">
-                                <h2 className="text-2xl font-bold text-gray-800 mb-6">🗓️ 行程規劃</h2>
-                                <p className="text-gray-600 text-center py-12">
-                                    行程規劃功能開發中... 
-                                    <br />
-                                    將包含時間軸、地點詳情、交通資訊等
-                                </p>
+                                <div className="max-w-md mx-auto">
+                                    <div className="text-center mb-8">
+                                        <h2 className="text-3xl font-bold text-gray-800 mb-2">💱 匯率換算</h2>
+                                        <p className="text-gray-600">JPY ⇄ TWD</p>
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <label className="block text-sm text-gray-600 mb-2">日幣金額 (JPY)</label>
+                                        <input
+                                            type="number"
+                                            placeholder="輸入日幣..."
+                                            className="w-full px-4 py-4 border-2 border-gray-300 rounded-lg text-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            onChange={(e) => {
+                                                const twd = e.target.value ? (parseFloat(e.target.value) * 0.22).toFixed(2) : '';
+                                                document.getElementById('twdInput').innerText = twd ? `NT$ ${parseFloat(twd).toLocaleString()}` : 'NT$ 0';
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="text-center py-4">
+                                        <div className="inline-flex items-center gap-3 bg-blue-50 px-6 py-3 rounded-full">
+                                            <span className="text-blue-600 font-semibold">當前匯率: 0.22</span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm text-gray-600 mb-2">約合台幣</label>
+                                        <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                            <div className="text-4xl font-bold text-gray-800" id="twdInput">
+                                                NT$ 0
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -484,67 +664,15 @@
                         {activeTab === 'expenses' && (
                             <div className="bg-white rounded-2xl shadow-lg p-8">
                                 <h2 className="text-2xl font-bold text-gray-800 mb-6">💰 記帳小幫手</h2>
-                                
-                                <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                                    <div className="text-sm text-blue-600 mb-1">總支出</div>
-                                    <div className="text-3xl font-bold text-blue-900">
-                                        NT$ {expenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3 mb-6">
-                                    {expenses.map(expense => (
-                                        <div key={expense.id} className="flex justify-between items-center p-4 border border-gray-200 rounded-lg">
-                                            <div>
-                                                <div className="font-semibold">{expense.name}</div>
-                                                <div className="text-sm text-gray-600">{expense.category}</div>
-                                            </div>
-                                            <div className="text-lg font-bold text-green-600">
-                                                NT$ {expense.amount.toLocaleString()}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {expenses.length === 0 && (
-                                    <p className="text-gray-400 text-center py-8">還沒有記帳記錄</p>
-                                )}
-
-                                <button
-                                    onClick={() => {
-                                        const name = prompt('項目名稱:');
-                                        if (!name) return;
-                                        const amount = prompt('金額 (TWD):');
-                                        if (!amount) return;
-                                        const category = prompt('類別 (如: 交通、餐飲、住宿):');
-                                        
-                                        setExpenses([...expenses, {
-                                            id: Date.now(),
-                                            name,
-                                            amount: parseFloat(amount),
-                                            category: category || '其他'
-                                        }]);
-                                    }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    新增支出
-                                </button>
+                                <p className="text-gray-600 text-center py-12">記帳功能開發中...</p>
                             </div>
                         )}
-
-                        {/* 匯率換算 */}
-                        {activeTab === 'currency' && <CurrencyConverter />}
 
                         {/* 分帳本 */}
                         {activeTab === 'split' && (
                             <div className="bg-white rounded-2xl shadow-lg p-8">
                                 <h2 className="text-2xl font-bold text-gray-800 mb-6">👥 多人分帳本</h2>
-                                <p className="text-gray-600 text-center py-12">
-                                    多人分帳功能開發中...
-                                    <br />
-                                    將包含成員管理、費用分攤、欠款計算等
-                                </p>
+                                <p className="text-gray-600 text-center py-12">分帳功能開發中...</p>
                             </div>
                         )}
                     </div>
