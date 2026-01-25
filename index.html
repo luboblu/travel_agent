@@ -1206,7 +1206,7 @@
                                                                     <div className="font-semibold">{member}</div>
                                                                 </div>
                                                                 <div className={`text-lg font-bold ${debt > 0 ? 'text-green-600' : debt < 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                                                                    {debt > 0 ? '多付' : debt < 0 ? '應付' : '已結清'} NT$ {Math.abs(Math.round(debt)).toLocaleString()}
+                                                                    {debt > 0 ? '+' : debt < 0 ? '-' : '已結清'} NT$ {Math.abs(Math.round(debt)).toLocaleString()}
                                                                 </div>
                                                             </div>
                                                         );
