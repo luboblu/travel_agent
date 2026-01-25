@@ -186,6 +186,7 @@
         function TravelApp() {
             const [user, setUser] = useState(null);
             const [activeTab, setActiveTab] = useState('itinerary');
+            const [selectedDate, setSelectedDate] = useState('all'); // 用於日期篩選
             
             // 共享資料
             const [sharedTodoItems, setSharedTodoItems] = useState([]);
@@ -384,6 +385,8 @@
                     setSharedItinerary([...sharedItinerary, itineraryData]);
                 }
 
+                // 切換到該日期的標籤
+                setSelectedDate(itineraryData.date);
                 setShowItineraryForm(false);
                 setEditingItinerary(null);
             };
@@ -471,8 +474,39 @@
                                         )}
                                     </div>
 
+                                    {/* 日期篩選按鈕 */}
+                                    {sharedItinerary.length > 0 && (
+                                        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+                                            <button
+                                                onClick={() => setSelectedDate('all')}
+                                                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                                                    selectedDate === 'all'
+                                                        ? 'bg-blue-600 text-white shadow-md'
+                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                全部行程
+                                            </button>
+                                            {[...new Set(sharedItinerary.map(item => item.date))].sort().map(date => (
+                                                <button
+                                                    key={date}
+                                                    onClick={() => setSelectedDate(date)}
+                                                    className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                                                        selectedDate === date
+                                                            ? 'bg-blue-600 text-white shadow-md'
+                                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                    }`}
+                                                >
+                                                    📅 {date}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     <div className="space-y-4">
-                                        {sharedItinerary.map(item => (
+                                        {sharedItinerary
+                                            .filter(item => selectedDate === 'all' || item.date === selectedDate)
+                                            .map(item => (
                                             <div key={item.id} className="border-2 border-blue-200 rounded-xl p-6 hover:shadow-lg transition-all">
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex-1">
@@ -538,11 +572,14 @@
                                         ))}
                                     </div>
 
-                                    {sharedItinerary.length === 0 && (
+                                    {sharedItinerary.filter(item => selectedDate === 'all' || item.date === selectedDate).length === 0 && (
                                         <p className="text-gray-400 text-center py-12">
-                                            {user.role === 'admin' 
-                                                ? '尚未新增行程，點擊上方按鈕開始規劃！' 
-                                                : '目前還沒有行程規劃'}
+                                            {sharedItinerary.length === 0
+                                                ? (user.role === 'admin' 
+                                                    ? '尚未新增行程，點擊上方按鈕開始規劃！' 
+                                                    : '目前還沒有行程規劃')
+                                                : '此日期沒有行程'
+                                            }
                                         </p>
                                     )}
                                 </div>
