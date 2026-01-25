@@ -189,17 +189,20 @@
             const [isRegister, setIsRegister] = useState(false);
             const [error, setError] = useState('');
 
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const username = formData.get('username').trim();
-                const password = formData.get('password');
+            // ===== 把原本的 handleSubmit 換成這個 =====
+        const handleSubmit = async (e) => {  // <--- 1. 這裡加了 async
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const username = formData.get('username').trim();
+            const password = formData.get('password');
 
-                if (!username || !password) {
-                    setError('請輸入用戶名和密碼');
-                    return;
-                }
+            if (!username || !password) {
+                setError('請輸入用戶名和密碼');
+                return;
+            }
 
+            try {
+                // <--- 2. 改用 firebaseService 並且加上 await
                 const users = await firebaseService.getItem('users', {});
 
                 if (isRegister) {
@@ -218,7 +221,8 @@
                         createdAt: new Date().toISOString()
                     };
                     
-                    safeLocalStorage.setItem('users', users);
+                    // <--- 3. 儲存時也要加 await
+                    await firebaseService.setItem('users', users);
                     alert(`註冊成功！${isFirstUser ? '你是第一個用戶，已自動設為管理員。' : ''}請登入。`);
                     setIsRegister(false);
                     setError('');
@@ -227,10 +231,15 @@
                         setError('用戶名或密碼錯誤');
                         return;
                     }
-                    safeLocalStorage.setItem('currentUser', users[username]);
+                    // <--- 4. 這裡也要改！儲存登入狀態
+                    await firebaseService.setItem('currentUser', users[username]);
                     onLogin(users[username]);
                 }
-            };
+            } catch (err) {
+                console.error("登入/註冊失敗:", err);
+                setError("系統錯誤，請檢查網路連線");
+            }
+        };
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
@@ -2615,40 +2624,39 @@ useEffect(() => {
             // 檢查是否有儲存的登入狀態
             // ✅ 這是新的，使用 firebaseService 並且正確處理非同步
             useEffect(() => {
-                const checkLogin = async () => { // 1. 建立一個 async 函式
-                    try {
-                        const savedUser = await firebaseService.getItem('currentUser'); // 2. 用 await 讀取
-                        
-                        if (savedUser && savedUser.username) {
-                            // 這裡我們還需要讀取完整用戶資料，確保資料是最新的
-                            const allUsers = await firebaseService.getItem('users', {});
-                            if (allUsers && allUsers[savedUser.username]) {
-                                setUser(allUsers[savedUser.username]);
-                            } else {
-                                localStorage.removeItem('currentUser'); // 清除無效紀錄
-                            }
+            const checkLogin = async () => { // 建立一個 async 函式
+                try {
+                    // 改用 firebaseService 檢查是否有登入紀錄
+                    const savedUser = await firebaseService.getItem('currentUser');
+                    
+                    if (savedUser && savedUser.username) {
+                        // 為了保險，再重新去雲端抓一次最新的使用者資料
+                        const allUsers = await firebaseService.getItem('users', {});
+                        if (allUsers && allUsers[savedUser.username]) {
+                            setUser(allUsers[savedUser.username]);
                         }
-                    } catch (error) {
-                        console.error("自動登入檢查失敗:", error);
-                    } finally {
-                        setIsLoading(false); // 3. 無論成功失敗，最後都要關閉 Loading
                     }
-                };
-                
-                checkLogin(); // 4. 執行上面那個函式
-            }, []);
+                } catch (error) {
+                    console.error("自動登入檢查失敗:", error);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            
+            checkLogin(); // 執行檢查
+        }, []);
 
             const handleLogin = async (userData) => {
                 setUser(userData);
-                safeLocalStorage.setItem('currentUser', userData);
+                await firebaseService.setItem('currentUser', userData);
             };
 
-            const handleLogout = () => {
-                setUser(null);
-                setCurrentGroup(null);
-                setShowAdmin(false);
-                localStorage.removeItem('currentUser');
-            };
+            const handleLogout = async () => {  
+            setUser(null);
+            setCurrentGroup(null);
+            setShowAdmin(false);
+            await firebaseService.setItem('currentUser', null);
+        };
 
             const handleSelectGroup = (group) => {
                 setCurrentGroup(group);
