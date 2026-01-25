@@ -184,6 +184,8 @@
                         setError('用戶名或密碼錯誤');
                         return;
                     }
+                    // 儲存登入狀態
+                    safeLocalStorage.setItem('currentUser', users[username]);
                     onLogin(users[username]);
                 }
             };
@@ -275,8 +277,8 @@
             const loadData = () => {
                 const allUsers = safeLocalStorage.getItem('users', {});
                 const allGroups = safeLocalStorage.getItem('groups', {});
-                setUsers(allUsers);
-                setGroups(allGroups);
+                setUsers(allUsers || {});
+                setGroups(allGroups || {});
             };
 
             const addUserToGroup = (username, groupId) => {
@@ -334,8 +336,8 @@
                 window.location.reload();
             };
 
-            const userList = Object.values(users);
-            const groupList = Object.values(groups);
+            const userList = Object.values(users || {});
+            const groupList = Object.values(groups || {});
 
             return (
                 <div className="min-h-screen bg-gray-100">
@@ -432,7 +434,7 @@
                                 ) : (
                                     <div className="space-y-4">
                                         {userList.map(u => {
-                                            const userGroups = groupList.filter(g => g.members.includes(u.username));
+                                            const userGroups = groupList.filter(g => g.members && g.members.includes(u.username));
                                             return (
                                                 <div key={u.username} className="border-2 border-gray-200 rounded-xl p-5 hover:border-blue-300 transition-colors">
                                                     <div className="flex items-start justify-between mb-3">
@@ -525,7 +527,7 @@
                                                 <div className="bg-gray-50 rounded-lg p-4">
                                                     <div className="flex items-center justify-between mb-3">
                                                         <p className="text-sm font-semibold text-gray-700">
-                                                            成員列表 ({g.members.length} 位)
+                                                            成員列表 ({g.members ? g.members.length : 0} 位)
                                                         </p>
                                                         <button
                                                             onClick={() => setShowGroupMembers(g.id)}
@@ -535,7 +537,7 @@
                                                         </button>
                                                     </div>
                                                     <div className="flex flex-wrap gap-2">
-                                                        {g.members.map(member => (
+                                                        {(g.members || []).map(member => (
                                                             <span key={member} className="px-3 py-1 bg-white border border-gray-300 rounded-full text-sm">
                                                                 {member}
                                                                 {users[member]?.role === 'admin' && (
@@ -608,7 +610,7 @@
                                 ) : (
                                     <div className="space-y-3">
                                         {groupList.map(g => {
-                                            const isMember = g.members.includes(showAddUserToGroup);
+                                            const isMember = g.members && g.members.includes(showAddUserToGroup);
                                             return (
                                                 <div key={g.id} className={`border-2 rounded-lg p-4 ${
                                                     isMember ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:border-blue-300'
@@ -617,7 +619,7 @@
                                                         <div className="flex-1">
                                                             <h4 className="font-bold text-gray-800">{g.name}</h4>
                                                             <p className="text-sm text-gray-600">
-                                                                成員: {g.members.length} 位
+                                                                成員: {g.members ? g.members.length : 0} 位
                                                             </p>
                                                         </div>
                                                         {isMember ? (
@@ -645,7 +647,7 @@
                         </div>
                     )}
 
-                    {showGroupMembers && (
+                    {showGroupMembers && groups[showGroupMembers] && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                             <div className="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
                                 <div className="flex justify-between items-center mb-6">
@@ -661,10 +663,10 @@
                                 </div>
                                 <div className="mb-6">
                                     <h4 className="font-bold text-gray-700 mb-3">
-                                        當前成員 ({groups[showGroupMembers]?.members.length})
+                                        當前成員 ({groups[showGroupMembers]?.members ? groups[showGroupMembers].members.length : 0})
                                     </h4>
                                     <div className="space-y-2">
-                                        {groups[showGroupMembers]?.members.map(member => (
+                                        {(groups[showGroupMembers]?.members || []).map(member => (
                                             <div key={member} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -692,12 +694,12 @@
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-gray-700 mb-3">可加入的用戶</h4>
-                                    {userList.filter(u => !groups[showGroupMembers]?.members.includes(u.username)).length === 0 ? (
+                                    {userList.filter(u => !(groups[showGroupMembers]?.members || []).includes(u.username)).length === 0 ? (
                                         <p className="text-gray-400 text-center py-4">所有用戶都已在此群組中</p>
                                     ) : (
                                         <div className="space-y-2">
                                             {userList
-                                                .filter(u => !groups[showGroupMembers]?.members.includes(u.username))
+                                                .filter(u => !(groups[showGroupMembers]?.members || []).includes(u.username))
                                                 .map(u => (
                                                     <div key={u.username} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                                                         <div className="flex items-center gap-3">
@@ -736,11 +738,11 @@
 
             const loadGroups = () => {
                 const allGroups = safeLocalStorage.getItem('groups', {});
-                setGroups(allGroups);
+                setGroups(allGroups || {});
             };
 
-            const userGroups = Object.values(groups).filter(g => 
-                g.members.includes(user.username)
+            const userGroups = Object.values(groups || {}).filter(g => 
+                g.members && g.members.includes(user.username)
             );
 
             const handleCreateGroup = (e) => {
@@ -781,8 +783,8 @@
                 allGroups[groupId] = newGroup;
                 safeLocalStorage.setItem('groups', allGroups);
                 
-                loadGroups();
                 setShowCreateGroup(false);
+                loadGroups(); // 重新載入群組列表
                 alert(`群組「${groupName}」建立成功！`);
             };
 
@@ -864,7 +866,7 @@
                                             </div>
                                             <div className="flex items-center gap-2 text-sm text-gray-600">
                                                 <Users className="w-4 h-4" />
-                                                <span>{group.members.length} 位成員</span>
+                                                <span>{group.members ? group.members.length : 0} 位成員</span>
                                             </div>
                                             {group.createdBy === user.username && (
                                                 <div className="mt-3 pt-3 border-t border-gray-100">
@@ -1789,8 +1791,8 @@
                     </div>
                 );
             }
-        // ==================== Part 3 開始 ====================
-            // 分帳系統 + 匯率換算 + 主程式
+        // ==================== Part 3 開始（修正版）====================
+            // 分帳系統 + 匯率換算 + 主程式（含自動登入）
 
             // ==================== 分帳系統 Tab ====================
             function SplitBillTab() {
@@ -2470,20 +2472,39 @@
             );
         }
 
-        // ==================== 主應用程式 ====================
+        // ==================== 主應用程式（含自動登入）====================
         function App() {
             const [user, setUser] = useState(null);
             const [currentGroup, setCurrentGroup] = useState(null);
             const [showAdmin, setShowAdmin] = useState(false);
+            const [isLoading, setIsLoading] = useState(true);
+
+            // 檢查是否有儲存的登入狀態
+            useEffect(() => {
+                const savedUser = safeLocalStorage.getItem('currentUser');
+                if (savedUser) {
+                    // 驗證用戶是否仍然存在
+                    const allUsers = safeLocalStorage.getItem('users', {});
+                    if (allUsers[savedUser.username]) {
+                        setUser(allUsers[savedUser.username]);
+                    } else {
+                        // 用戶已被刪除，清除登入狀態
+                        localStorage.removeItem('currentUser');
+                    }
+                }
+                setIsLoading(false);
+            }, []);
 
             const handleLogin = (userData) => {
                 setUser(userData);
+                safeLocalStorage.setItem('currentUser', userData);
             };
 
             const handleLogout = () => {
                 setUser(null);
                 setCurrentGroup(null);
                 setShowAdmin(false);
+                localStorage.removeItem('currentUser');
             };
 
             const handleSelectGroup = (group) => {
@@ -2505,14 +2526,26 @@
                 setShowAdmin(false);
             };
 
+            // 載入中
+            if (isLoading) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                        <div className="text-white text-xl">載入中...</div>
+                    </div>
+                );
+            }
+
+            // 未登入
             if (!user) {
                 return <LoginPage onLogin={handleLogin} />;
             }
 
+            // 系統管理頁面
             if (showAdmin && user.role === 'admin') {
                 return <AdminPanel user={user} onBack={handleCloseAdmin} />;
             }
 
+            // 未選擇群組
             if (!currentGroup) {
                 return (
                     <GroupSelectionPage 
@@ -2524,6 +2557,7 @@
                 );
             }
 
+            // 已選擇群組
             return (
                 <GroupMainPage 
                     user={user}
