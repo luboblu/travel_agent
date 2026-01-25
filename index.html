@@ -346,9 +346,10 @@
                 }
             };
 
-            const addUserToGroup = async (username, groupId) => {
+            const addUserToGroup = async (username, groupId) => { // <--- 1. 加上 async
                 try {
-                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    // <--- 2. 改用 await firebaseService 讀取
+                    const allGroups = await firebaseService.getItem('groups', {});
                     
                     if (!allGroups[groupId]) {
                         alert('群組不存在');
@@ -358,6 +359,7 @@
                     if (!allGroups[groupId].members.includes(username)) {
                         allGroups[groupId].members.push(username);
                         
+                        // 初始化該使用者的個人資料區
                         if (!allGroups[groupId].data.personalData[username]) {
                             allGroups[groupId].data.personalData[username] = {
                                 packingItems: [],
@@ -365,12 +367,16 @@
                             };
                         }
                         
+                        // 初始化分帳名單
                         if (!allGroups[groupId].data.splitBillData.members.includes(username)) {
                             allGroups[groupId].data.splitBillData.members.push(username);
                         }
 
-                        safeLocalStorage.setItem('groups', allGroups);
-                        loadData();
+                        // <--- 3. 改用 await firebaseService 儲存
+                        await firebaseService.setItem('groups', allGroups);
+                        
+                        // <--- 4. 重新讀取資料以更新畫面
+                        await loadData();
                         alert(`已將 ${username} 加入群組！`);
                     }
                 } catch (error) {
@@ -379,18 +385,21 @@
                 }
             };
 
-            const removeUserFromGroup = async (username, groupId) => {
+            // ✅ 修正後的 removeUserFromGroup (移除成員)
+            const removeUserFromGroup = async (username, groupId) => { // <--- 加上 async
                 if (!confirm(`確定要將 ${username} 從群組移除嗎？`)) return;
 
                 try {
-                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    // 加 await
+                    const allGroups = await firebaseService.getItem('groups', {});
                     
                     if (allGroups[groupId]) {
                         allGroups[groupId].members = allGroups[groupId].members.filter(m => m !== username);
                         allGroups[groupId].data.splitBillData.members = allGroups[groupId].data.splitBillData.members.filter(m => m !== username);
                         
-                        safeLocalStorage.setItem('groups', allGroups);
-                        loadData();
+                        // 加 await 儲存
+                        await firebaseService.setItem('groups', allGroups);
+                        await loadData(); // 重新讀取
                         alert(`已將 ${username} 從群組移除`);
                     }
                 } catch (error) {
@@ -399,14 +408,18 @@
                 }
             };
 
-            const deleteGroup = async (groupId, groupName) => {
+            // ✅ 修正後的 deleteGroup (刪除群組)
+            const deleteGroup = async (groupId, groupName) => { // <--- 加上 async
                 if (!confirm(`確定要刪除群組「${groupName}」嗎？此操作無法復原！`)) return;
 
                 try {
-                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    // 加 await
+                    const allGroups = await firebaseService.getItem('groups', {});
                     delete allGroups[groupId];
-                    safeLocalStorage.setItem('groups', allGroups);
-                    loadData();
+                    
+                    // 加 await 儲存
+                    await firebaseService.setItem('groups', allGroups);
+                    await loadData(); // 重新讀取
                     alert(`群組「${groupName}」已刪除`);
                 } catch (error) {
                     console.error('刪除群組失敗:', error);
