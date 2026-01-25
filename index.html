@@ -701,7 +701,7 @@
                                         當前成員 ({groups[showGroupMembers]?.members && Array.isArray(groups[showGroupMembers].members) ? groups[showGroupMembers].members.length : 0})
                                     </h4>
                                     <div className="space-y-2">
-                                        {groups[showGroupMembers]?.members && Array.isArray(groups[showGroupMembers].members) && groups[showGroupMembers].members.map(member => (
+                                        {groups[showGroupMembers] && groups[showGroupMembers].members && Array.isArray(groups[showGroupMembers].members) ? groups[showGroupMembers].members.map(member => (
                                             <div key={member} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -729,13 +729,23 @@
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-gray-700 mb-3">可加入的用戶</h4>
-                                    {userList.filter(u => u && u.username && !(groups[showGroupMembers]?.members && Array.isArray(groups[showGroupMembers].members) && groups[showGroupMembers].members.includes(u.username))).length === 0 ? (
+                                    {userList.filter(u => {
+                                        if (!u || !u.username) return false;
+                                        if (!groups[showGroupMembers] || !groups[showGroupMembers].members) return true;
+                                        if (!Array.isArray(groups[showGroupMembers].members)) return true;
+                                        return !groups[showGroupMembers].members.includes(u.username);
+                                    }).length === 0 ? (
                                         <p className="text-gray-400 text-center py-4">所有用戶都已在此群組中</p>
                                     ) : (
                                         <div className="space-y-2">
                                             {userList
-                                                .filter(u => u && u.username && !(groups[showGroupMembers]?.members && Array.isArray(groups[showGroupMembers].members) && groups[showGroupMembers].members.includes(u.username)))
-                                                .map(u => (
+                                                    .filter(u => {
+                                                        if (!u || !u.username) return false;
+                                                        if (!groups[showGroupMembers] || !groups[showGroupMembers].members) return true;
+                                                        if (!Array.isArray(groups[showGroupMembers].members)) return true;
+                                                        return !groups[showGroupMembers].members.includes(u.username);
+                                                    })
+                                                    .map(u => (
                                                     <div key={u.username} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -768,9 +778,14 @@
             const [showCreateGroup, setShowCreateGroup] = useState(false);
             const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-            useEffect(() => {
-                loadGroups();
-            }, [refreshTrigger]);
+            // 組件載入時強制刷新一次
+useEffect(() => {
+    setRefreshTrigger(prev => prev + 1);
+}, []);
+
+useEffect(() => {
+    loadGroups();
+}, [refreshTrigger]);
 
             const loadGroups = () => {
                 try {
@@ -782,9 +797,14 @@
                 }
             };
 
-            const userGroups = groups && typeof groups === 'object' 
-                ? Object.values(groups).filter(g => g && g.members && Array.isArray(g.members) && g.members.includes(user.username))
-                : [];
+            const userGroups = React.useMemo(() => {
+    if (!groups || typeof groups !== 'object') return [];
+    return Object.values(groups).filter(g => {
+        if (!g || !g.id || !g.members) return false;
+        if (!Array.isArray(g.members)) return false;
+        return g.members.includes(user.username);
+    });
+}, [groups, user.username]);
 
             const handleCreateGroup = (e) => {
                 e.preventDefault();
@@ -2529,19 +2549,18 @@
 
             // 檢查是否有儲存的登入狀態
             useEffect(() => {
-                const savedUser = safeLocalStorage.getItem('currentUser');
-                if (savedUser) {
-                    // 驗證用戶是否仍然存在
-                    const allUsers = safeLocalStorage.getItem('users', {});
-                    if (allUsers[savedUser.username]) {
-                        setUser(allUsers[savedUser.username]);
-                    } else {
-                        // 用戶已被刪除，清除登入狀態
-                        localStorage.removeItem('currentUser');
-                    }
-                }
-                setIsLoading(false);
-            }, []);
+    const savedUser = safeLocalStorage.getItem('currentUser');
+    if (savedUser && savedUser.username) {
+        const allUsers = safeLocalStorage.getItem('users', {});
+        if (allUsers && allUsers[savedUser.username]) {
+            setUser(allUsers[savedUser.username]);
+        } else {
+            // 用戶被刪除，清除登入狀態
+            localStorage.removeItem('currentUser');
+        }
+    }
+    setIsLoading(false);
+}, []);
 
             const handleLogin = (userData) => {
                 setUser(userData);
