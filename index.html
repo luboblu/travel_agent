@@ -3,11 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>旅行規劃師 - 群組協作完整版</title>
+    <title>旅行規劃師 - 雲端版</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+
+    <script>
+        // 這是從你的截圖中抄下來的設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxP6IzPLqdKEm-CMdSElzxeUJ_mf1PLXM",
+            authDomain: "travel-8e1f8.firebaseapp.com",
+            projectId: "travel-8e1f8",
+            storageBucket: "travel-8e1f8.firebasestorage.app",
+            messagingSenderId: "576238991877",
+            appId: "1:576238991877:web:2da9944ab1ba69bed5ba6c",
+            measurementId: "G-NJBL1GZ1GM"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        
+        // 取得資料庫實例，稍後 React 會用到這個 'db'
+        const db = firebase.firestore();
+        
+        console.log("Firebase 已連線！專案ID:", firebaseConfig.projectId);
+    </script>
 </head>
 <body>
     <div id="root"></div>
@@ -16,26 +42,43 @@
         const { useState, useEffect } = React;
         
         // ==================== 工具函數 ====================
-        const safeLocalStorage = {
-            getItem: (key, defaultValue = null) => {
+        // ========== 貼上這段新的 (這是 Firebase 版) ==========
+        const firebaseService = {
+            // 讀取資料 (非同步)
+            getItem: async (key, defaultValue = null) => {
                 try {
-                    const item = localStorage.getItem(key);
-                    return item ? JSON.parse(item) : defaultValue;
+                    // 確保 db 已經在 head 中初始化
+                    if (!db) throw new Error("Firebase DB 未初始化");
+                    
+                    const doc = await db.collection('travel_app').doc('storage').get();
+                    if (doc.exists) {
+                        const data = doc.data();
+                        if (data && data[key]) {
+                            return JSON.parse(data[key]);
+                        }
+                    }
+                    return defaultValue;
                 } catch (error) {
-                    console.warn(`localStorage 讀取失敗 (${key}):`, error);
+                    console.error(`Firebase 讀取失敗 (${key}):`, error);
                     return defaultValue;
                 }
             },
-            setItem: (key, value) => {
+            // 儲存資料 (非同步)
+            setItem: async (key, value) => {
                 try {
-                    localStorage.setItem(key, JSON.stringify(value));
+                    if (!db) throw new Error("Firebase DB 未初始化");
+                    
+                    await db.collection('travel_app').doc('storage').set({
+                        [key]: JSON.stringify(value)
+                    }, { merge: true });
                     return true;
                 } catch (error) {
-                    console.warn(`localStorage 儲存失敗 (${key}):`, error);
+                    console.error(`Firebase 儲存失敗 (${key}):`, error);
                     return false;
                 }
             }
         };
+        // ============================================
 
         // ==================== Icon 組件 ====================
         const MapPin = ({ className = "w-5 h-5" }) => (
@@ -146,7 +189,7 @@
             const [isRegister, setIsRegister] = useState(false);
             const [error, setError] = useState('');
 
-            const handleSubmit = (e) => {
+            const handleSubmit = async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const username = formData.get('username').trim();
@@ -157,7 +200,7 @@
                     return;
                 }
 
-                const users = safeLocalStorage.getItem('users', {});
+                const users = await firebaseService.getItem('users', {});
 
                 if (isRegister) {
                     if (users[username]) {
@@ -273,7 +316,7 @@
                 loadData();
             }, []);
 
-            const loadData = () => {
+            const loadData = async () => {
                 try {
                     const allUsers = safeLocalStorage.getItem('users', {});
                     const allGroups = safeLocalStorage.getItem('groups', {});
@@ -288,7 +331,7 @@
                 }
             };
 
-            const addUserToGroup = (username, groupId) => {
+            const addUserToGroup = async (username, groupId) => {
                 try {
                     const allGroups = safeLocalStorage.getItem('groups', {});
                     
@@ -321,7 +364,7 @@
                 }
             };
 
-            const removeUserFromGroup = (username, groupId) => {
+            const removeUserFromGroup = async (username, groupId) => {
                 if (!confirm(`確定要將 ${username} 從群組移除嗎？`)) return;
 
                 try {
@@ -341,7 +384,7 @@
                 }
             };
 
-            const deleteGroup = (groupId, groupName) => {
+            const deleteGroup = async (groupId, groupName) => {
                 if (!confirm(`確定要刪除群組「${groupName}」嗎？此操作無法復原！`)) return;
 
                 try {
@@ -794,7 +837,7 @@ useEffect(() => {
     loadGroups();
 }, [refreshTrigger]);
 
-            const loadGroups = () => {
+            const loadGroups = async () => {
                 try {
                     const allGroups = safeLocalStorage.getItem('groups', {});
                     setGroups(allGroups && typeof allGroups === 'object' ? allGroups : {});
@@ -813,7 +856,7 @@ useEffect(() => {
     });
 }, [groups, user.username]);
 
-            const handleCreateGroup = (e) => {
+            const handleCreateGroup = async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const groupName = formData.get('groupName').trim();
@@ -1007,11 +1050,26 @@ useEffect(() => {
             const [groupData, setGroupData] = useState(group.data);
 
             // 儲存群組資料
-            const saveGroupData = (newData) => {
-                const allGroups = safeLocalStorage.getItem('groups', {});
-                allGroups[group.id].data = newData;
-                safeLocalStorage.setItem('groups', allGroups);
-                setGroupData(newData);
+           // 用這段取代原本的 saveGroupData 內容
+            const saveGroupData = async (newData) => {
+                try {
+                    // 1. 先從雲端讀取最新的群組列表 (加 await)
+                    const allGroups = await firebaseService.getItem('groups', {});
+
+                    // 2. 更新目前群組的資料
+                    if (allGroups[group.id]) {
+                        allGroups[group.id].data = newData;
+
+                        // 3. 寫回雲端 (加 await)
+                        await firebaseService.setItem('groups', allGroups);
+
+                        // 4. 更新畫面
+                        setGroupData(newData);
+                    }
+                } catch (error) {
+                    console.error('儲存失敗:', error);
+                    alert('儲存失敗，請檢查網路連線');
+                }
             };
 
             // ==================== 行程規劃 Tab ====================
