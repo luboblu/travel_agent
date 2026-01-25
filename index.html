@@ -419,17 +419,36 @@
                         return { total: 0, average: 0, memberDebts: {} };
                     }
 
+                    // 計算總花費
                     const total = splitBillData.expenses.reduce((sum, e) => sum + e.amount, 0);
-                    const memberCount = splitBillData.members.length;
-                    const average = total / memberCount;
                     
+                    // 為每個成員初始化帳本
                     const memberDebts = {};
                     splitBillData.members.forEach(member => {
-                        const paid = splitBillData.expenses
-                            .filter(e => e.payer === member)
-                            .reduce((sum, e) => sum + e.amount, 0);
-                        memberDebts[member] = paid - average;
+                        memberDebts[member] = 0;
                     });
+                    
+                    // 計算每筆支出
+                    splitBillData.expenses.forEach(expense => {
+                        const participants = expense.participants || splitBillData.members;
+                        const participantCount = participants.length;
+                        const sharePerPerson = expense.amount / participantCount;
+                        
+                        // 每個參與者應付的金額
+                        participants.forEach(participant => {
+                            if (memberDebts[participant] !== undefined) {
+                                memberDebts[participant] -= sharePerPerson;
+                            }
+                        });
+                        
+                        // 付款人實際支付的金額
+                        if (memberDebts[expense.payer] !== undefined) {
+                            memberDebts[expense.payer] += expense.amount;
+                        }
+                    });
+                    
+                    // 計算平均（僅供參考）
+                    const average = total / splitBillData.members.length;
                     
                     return { total, average, memberDebts };
                 };
@@ -1194,19 +1213,43 @@
                                                     <p className="text-gray-400 text-center py-8">還沒有支出記錄</p>
                                                 ) : (
                                                     <div className="space-y-3">
-                                                        {splitBillData.expenses.map(expense => (
-                                                            <div key={expense.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                                                                <div>
-                                                                    <div className="font-semibold">{expense.item}</div>
-                                                                    <div className="text-sm text-gray-600">
-                                                                        {expense.payer} 支付 • {expense.category}
+                                                        {splitBillData.expenses.map(expense => {
+                                                            const participants = expense.participants || splitBillData.members;
+                                                            const sharePerPerson = expense.amount / participants.length;
+                                                            
+                                                            return (
+                                                                <div key={expense.id} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
+                                                                    <div className="flex justify-between items-start mb-3">
+                                                                        <div className="flex-1">
+                                                                            <div className="font-semibold text-lg">{expense.item}</div>
+                                                                            <div className="text-sm text-gray-600 mt-1">
+                                                                                {expense.payer} 支付 • {expense.category}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="text-xl font-bold text-blue-600">
+                                                                            NT$ {expense.amount.toLocaleString()}
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    {/* 參與成員資訊 */}
+                                                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                                                        <div className="flex items-center gap-2 text-sm">
+                                                                            <span className="text-gray-600">👥 參與者:</span>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {participants.map(participant => (
+                                                                                    <span key={participant} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                                                                                        {participant}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="text-xs text-gray-500 mt-1">
+                                                                            💰 每人分攤: NT$ {Math.round(sharePerPerson).toLocaleString()}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="text-xl font-bold text-blue-600">
-                                                                    NT$ {expense.amount.toLocaleString()}
-                                                                </div>
-                                                            </div>
-                                                        ))}
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>
@@ -1644,7 +1687,7 @@
                         {/* 新增支出彈窗 */}
                         {showExpenseForm && (
                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                                <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
                                     <div className="flex justify-between items-center mb-6">
                                         <h3 className="text-xl font-bold">新增支出</h3>
                                         <button onClick={() => setShowExpenseForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -1655,12 +1698,25 @@
                                     <form onSubmit={(e) => {
                                         e.preventDefault();
                                         const formData = new FormData(e.target);
+                                        
+                                        // 獲取所有被選中的參與成員
+                                        const participants = [];
+                                        splitBillData.members.forEach(member => {
+                                            if (formData.get(`participant_${member}`) === 'on') {
+                                                participants.push(member);
+                                            }
+                                        });
+                                        
+                                        // 如果沒有選擇任何成員，預設為所有成員
+                                        const finalParticipants = participants.length > 0 ? participants : splitBillData.members;
+                                        
                                         const expense = {
                                             id: Date.now(),
                                             item: formData.get('item'),
                                             amount: parseFloat(formData.get('amount')),
                                             payer: formData.get('payer'),
-                                            category: formData.get('category')
+                                            category: formData.get('category'),
+                                            participants: finalParticipants
                                         };
                                         
                                         setSplitBillData({
@@ -1729,6 +1785,34 @@
                                                     <option value="購物">購物</option>
                                                     <option value="其他">其他</option>
                                                 </select>
+                                            </div>
+
+                                            {/* 參與成員選擇 */}
+                                            <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                                                <label className="block text-sm font-semibold text-gray-800 mb-3">
+                                                    👥 參與成員（誰要分這筆錢？）
+                                                </label>
+                                                <div className="text-xs text-gray-600 mb-3">
+                                                    💡 不選擇則預設所有成員平分
+                                                </div>
+                                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                                    {splitBillData.members.map(member => (
+                                                        <label key={member} className="flex items-center gap-3 p-2 hover:bg-blue-100 rounded-lg cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                name={`participant_${member}`}
+                                                                defaultChecked
+                                                                className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                                            />
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                                                    {member[0].toUpperCase()}
+                                                                </div>
+                                                                <span className="font-medium text-gray-800">{member}</span>
+                                                            </div>
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
 
