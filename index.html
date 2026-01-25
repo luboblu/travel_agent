@@ -837,19 +837,20 @@
             const [showCreateGroup, setShowCreateGroup] = useState(false);
             const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-            // 組件載入時強制刷新一次
-useEffect(() => {
-    setRefreshTrigger(prev => prev + 1);
-}, []);
+            // 1. 修改 useEffect：確保讀取時處理非同步
+            useEffect(() => {
+                const fetchData = async () => {
+                    await loadGroups();
+                };
+                fetchData();
+            }, [refreshTrigger]);
 
-useEffect(() => {
-    loadGroups();
-}, [refreshTrigger]);
-
+            // 2. 修改 loadGroups：加上 async 並改用 firebaseService
             const loadGroups = async () => {
                 try {
-                    const allGroups = safeLocalStorage.getItem('groups', {});
-                    setGroups(allGroups && typeof allGroups === 'object' ? allGroups : {});
+                    // 這裡一定要加 await，不然會讀不到資料！
+                    const allGroups = await firebaseService.getItem('groups', {});
+                    setGroups(allGroups || {});
                 } catch (error) {
                     console.error('載入群組失敗:', error);
                     setGroups({});
