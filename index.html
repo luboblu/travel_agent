@@ -724,7 +724,12 @@
                                                     </button>
                                                 )}
                                             </div>
-                                        ))}
+                                        // 請將第 727 行原本的 `))}` 刪除，換成下面這幾行：
+                                        )) : (
+                                            <div className="text-center py-4 text-gray-500 text-sm">
+                                                暫無成員
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div>
