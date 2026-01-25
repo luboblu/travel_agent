@@ -288,43 +288,35 @@
 
                 // 載入共享資料
                 useEffect(() => {
-                    const sharedData = safeLocalStorage.getItem('sharedData', {});
-                    setSharedTodoItems(sharedData.todoItems || [
-                        { id: 1, text: '訂機票', completed: true, priority: true },
-                        { id: 2, text: '訂飯店', completed: true, priority: true },
-                        { id: 3, text: '申請簽證', completed: false, priority: true }
-                    ]);
-                    setSharedItinerary(sharedData.itinerary || [
-                        {
-                            id: 1,
-                            day: 1,
-                            date: '2026-02-01',
-                            title: '東京淺草寺',
-                            time: '09:00',
-                            location: '東京都台東區淺草2-3-1',
-                            description: '東京最古老的寺廟，必訪景點',
-                            mapUrl: 'https://maps.google.com/?q=淺草寺',
-                            websiteUrl: 'https://www.senso-ji.jp/',
-                            category: 'attraction'
-                        }
-                    ]);
-                    setSplitBillData(sharedData.splitBill || {
-                        members: [],
-                        publicBudget: 3280,
-                        expenses: []
-                    });
+                    const sharedData = safeLocalStorage.getItem('sharedData', null);
+                    
+                    // 只在完全沒有資料時才使用預設值
+                    if (sharedData && sharedData.todoItems) {
+                        setSharedTodoItems(sharedData.todoItems);
+                    }
+                    
+                    if (sharedData && sharedData.itinerary) {
+                        setSharedItinerary(sharedData.itinerary);
+                    }
+                    
+                    if (sharedData && sharedData.splitBill) {
+                        setSplitBillData(sharedData.splitBill);
+                    }
                 }, []);
 
                 // 載入個人資料
                 useEffect(() => {
                     if (user) {
-                        const userData = safeLocalStorage.getItem(`userData_${user.username}`, {});
-                        setPersonalPackingItems(userData.packingItems || [
-                            { id: 1, text: '充電線', completed: false },
-                            { id: 2, text: '行充', completed: false },
-                            { id: 3, text: '梳子', completed: false }
-                        ]);
-                        setExpenses(userData.expenses || []);
+                        const userData = safeLocalStorage.getItem(`userData_${user.username}`, null);
+                        
+                        // 只在有資料時才設定，否則保持空陣列
+                        if (userData && userData.packingItems) {
+                            setPersonalPackingItems(userData.packingItems);
+                        }
+                        
+                        if (userData && userData.expenses) {
+                            setExpenses(userData.expenses);
+                        }
                     }
                 }, [user]);
 
