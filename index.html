@@ -214,6 +214,15 @@
             const [showMemberSelect, setShowMemberSelect] = useState(false);
             const [showExpenseForm, setShowExpenseForm] = useState(false);
 
+            // 待辦清單表單
+            const [showTodoForm, setShowTodoForm] = useState(false);
+
+            // 整理行李表單
+            const [showPackingForm, setShowPackingForm] = useState(false);
+
+            // 記帳表單
+            const [showPersonalExpenseForm, setShowPersonalExpenseForm] = useState(false);
+
             // 初始化測試帳號
             useEffect(() => {
                 const users = JSON.parse(localStorage.getItem('users') || '{}');
@@ -633,17 +642,7 @@
 
                                     {user.role === 'admin' && (
                                         <button
-                                            onClick={() => {
-                                                const text = prompt('新增待辦事項:');
-                                                if (text) {
-                                                    setSharedTodoItems([...sharedTodoItems, {
-                                                        id: Date.now(),
-                                                        text,
-                                                        completed: false,
-                                                        priority: false
-                                                    }]);
-                                                }
-                                            }}
+                                            onClick={() => setShowTodoForm(true)}
                                             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                                         >
                                             <Plus className="w-4 h-4" />
@@ -692,16 +691,7 @@
                                     </div>
 
                                     <button
-                                        onClick={() => {
-                                            const text = prompt('新增行李項目:');
-                                            if (text) {
-                                                setPersonalPackingItems([...personalPackingItems, {
-                                                    id: Date.now(),
-                                                    text,
-                                                    completed: false
-                                                }]);
-                                            }
-                                        }}
+                                        onClick={() => setShowPackingForm(true)}
                                         className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
                                     >
                                         <Plus className="w-4 h-4" />
@@ -782,20 +772,7 @@
                                 )}
 
                                 <button
-                                    onClick={() => {
-                                        const name = prompt('項目名稱:');
-                                        if (!name) return;
-                                        const amount = prompt('金額 (TWD):');
-                                        if (!amount) return;
-                                        const category = prompt('類別 (如: 交通、餐飲、住宿):');
-                                        
-                                        setExpenses([...expenses, {
-                                            id: Date.now(),
-                                            name,
-                                            amount: parseFloat(amount),
-                                            category: category || '其他'
-                                        }]);
-                                    }}
+                                    onClick={() => setShowPersonalExpenseForm(true)}
                                     className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-green-500 text-white rounded-xl hover:bg-green-600 font-semibold text-lg"
                                 >
                                     <Plus className="w-5 h-5" />
@@ -937,6 +914,224 @@
                             </div>
                         )}
                     </div>
+
+                    {/* 待辦清單表單彈窗 */}
+                    {showTodoForm && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-xl font-bold">新增待辦事項</h3>
+                                    <button onClick={() => setShowTodoForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.target);
+                                    const newTodo = {
+                                        id: Date.now(),
+                                        text: formData.get('text'),
+                                        completed: false,
+                                        priority: formData.get('priority') === 'on'
+                                    };
+                                    setSharedTodoItems([...sharedTodoItems, newTodo]);
+                                    setShowTodoForm(false);
+                                }}>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                項目名稱 *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="text"
+                                                required
+                                                placeholder="例如: 訂機票"
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    name="priority"
+                                                    className="w-5 h-5 text-red-600"
+                                                />
+                                                <span className="text-sm font-medium text-gray-700">
+                                                    標記為優先事項 ⭐
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowTodoForm(false)}
+                                            className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+                                        >
+                                            取消
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+                                        >
+                                            確認
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 整理行李表單彈窗 */}
+                    {showPackingForm && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-xl font-bold">新增行李項目</h3>
+                                    <button onClick={() => setShowPackingForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.target);
+                                    const newItem = {
+                                        id: Date.now(),
+                                        text: formData.get('text'),
+                                        completed: false
+                                    };
+                                    setPersonalPackingItems([...personalPackingItems, newItem]);
+                                    setShowPackingForm(false);
+                                }}>
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            項目名稱 *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="text"
+                                            required
+                                            placeholder="例如: 充電線"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPackingForm(false)}
+                                            className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+                                        >
+                                            取消
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                                        >
+                                            確認
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 個人記帳表單彈窗 */}
+                    {showPersonalExpenseForm && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className="bg-white rounded-2xl max-w-md w-full p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-xl font-bold">新增支出</h3>
+                                    <button onClick={() => setShowPersonalExpenseForm(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.target);
+                                    const newExpense = {
+                                        id: Date.now(),
+                                        name: formData.get('name'),
+                                        amount: parseFloat(formData.get('amount')),
+                                        category: formData.get('category')
+                                    };
+                                    setExpenses([...expenses, newExpense]);
+                                    setShowPersonalExpenseForm(false);
+                                }}>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                項目名稱 *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="name"
+                                                required
+                                                placeholder="例如: 午餐"
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                金額 (TWD) *
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="amount"
+                                                required
+                                                min="0"
+                                                step="0.01"
+                                                placeholder="例如: 150"
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                類別 *
+                                            </label>
+                                            <select
+                                                name="category"
+                                                required
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                            >
+                                                <option value="">選擇類別</option>
+                                                <option value="交通">交通</option>
+                                                <option value="餐飲">餐飲</option>
+                                                <option value="住宿">住宿</option>
+                                                <option value="門票">門票</option>
+                                                <option value="購物">購物</option>
+                                                <option value="其他">其他</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPersonalExpenseForm(false)}
+                                            className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold"
+                                        >
+                                            取消
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+                                        >
+                                            確認
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
 
                     {/* 行程表單彈窗 */}
                     {showItineraryForm && (
