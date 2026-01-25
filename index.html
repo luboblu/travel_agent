@@ -223,7 +223,9 @@
 
             // 記帳表單
             const [showPersonalExpenseForm, setShowPersonalExpenseForm] = useState(false);
-
+            const [exchangeRate, setExchangeRate] = useState(0.22); // 預設匯率
+            const [lastUpdated, setLastUpdated] = useState('');     // 最後更新時間
+            const [isRateLoading, setIsRateLoading] = useState(false); // 讀取狀態
             // 初始化測試帳號
             useEffect(() => {
                 const users = JSON.parse(localStorage.getItem('users') || '{}');
@@ -310,7 +312,24 @@
             useEffect(() => {
                 savePersonalData();
             }, [personalPackingItems, expenses]);
-
+            useEffect(() => {
+            if (activeTab === 'currency') {
+                setIsRateLoading(true);
+                // 使用免費公開 API (以 JPY 為基準)
+                fetch('https://api.exchangerate-api.com/v4/latest/JPY')
+                    .then(res => res.json())
+                    .then(data => {
+                        const rate = data.rates.TWD;
+                        setExchangeRate(rate);
+                        setLastUpdated(new Date(data.time_last_updated * 1000).toLocaleDateString());
+                        setIsRateLoading(false);
+                    })
+                    .catch(err => {
+                        console.error("匯率抓取失敗，使用預設值", err);
+                        setIsRateLoading(false);
+                    });
+            }
+        }, [activeTab]);
             if (!user) {
                 return <LoginPage onLogin={setUser} />;
             }
@@ -347,6 +366,48 @@
                 
                 return { total, average, memberDebts };
             };
+            const calculateSettlements = (debts) => {
+                    let debtors = [];
+                    let creditors = [];
+
+                    // 分類：誰是欠錢的(負值)，誰是該收錢的(正值)
+                    Object.entries(debts).forEach(([member, amount]) => {
+                        if (amount < -1) debtors.push({ member, amount }); // 欠錢
+                        if (amount > 1) creditors.push({ member, amount }); // 該收錢
+                    });
+
+                    // 排序：金額大的排前面
+                    debtors.sort((a, b) => a.amount - b.amount);
+                    creditors.sort((a, b) => b.amount - a.amount);
+
+                    const settlements = [];
+
+                    // 貪婪演算法匹配
+                    while (debtors.length > 0 && creditors.length > 0) {
+                        const debtor = debtors[0];
+                        const creditor = creditors[0];
+                        
+                        // 交易金額是兩者絕對值的最小值
+                        const amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+
+                        settlements.push({
+                            from: debtor.member,
+                            to: creditor.member,
+                            amount: Math.round(amount)
+                        });
+
+                        // 更新餘額
+                        debtor.amount += amount;
+                        creditor.amount -= amount;
+
+                        // 如果餘額歸零（或極小），就移出清單
+                        if (Math.abs(debtor.amount) < 1) debtors.shift();
+                        if (creditor.amount < 1) creditors.shift();
+                    }
+                    return settlements;
+                };
+
+const settlements = calculateSettlements(memberDebts);
 
             const { total: splitTotal, average: splitAverage, memberDebts } = calculateSplit();
 
@@ -751,17 +812,30 @@
                                             placeholder="輸入日幣..."
                                             className="w-full px-4 py-4 border-2 border-gray-300 rounded-lg text-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             onChange={(e) => {
-                                                const twd = e.target.value ? (parseFloat(e.target.value) * 0.22).toFixed(2) : '';
+                                                const twd = e.target.value ? (parseFloat(e.target.value) * exchangeRate).toFixed(0) : '';
                                                 document.getElementById('twdInput').innerText = twd ? `NT$ ${parseFloat(twd).toLocaleString()}` : 'NT$ 0';
                                             }}
                                         />
                                     </div>
 
                                     <div className="text-center py-4">
-                                        <div className="inline-flex items-center gap-3 bg-blue-50 px-6 py-3 rounded-full">
-                                            <span className="text-blue-600 font-semibold">當前匯率: 0.22</span>
-                                        </div>
-                                    </div>
+    <div className="inline-flex flex-col items-center gap-1 bg-blue-50 px-6 py-3 rounded-2xl">
+        <div className="flex items-center gap-2">
+            {isRateLoading ? (
+                <span className="text-blue-600">更新中...</span>
+            ) : (
+                <span className="text-blue-600 font-bold text-lg">
+                    即時匯率: {exchangeRate}
+                </span>
+            )}
+        </div>
+        {lastUpdated && (
+            <span className="text-xs text-blue-400">
+                更新日期: {lastUpdated}
+            </span>
+        )}
+    </div>
+</div>
 
                                     <div>
                                         <label className="block text-sm text-gray-600 mb-2">約合台幣</label>
@@ -919,6 +993,29 @@
                                                 })}
                                             </div>
                                         </div>
+                                        {/* 在「成員清單」區塊結束後，插入這段程式碼 */}
+
+                                            {settlements.length > 0 && (
+                                                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 mb-6">
+                                                    <h3 className="font-bold text-yellow-800 mb-4 flex items-center gap-2">
+                                                        🤝 結算建議 (Settlement)
+                                                    </h3>
+                                                    <div className="space-y-3">
+                                                        {settlements.map((item, index) => (
+                                                            <div key={index} className="flex items-center justify-between bg-white p-4 rounded-lg border border-yellow-100 shadow-sm">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-bold text-gray-800">{item.from}</span>
+                                                                    <span className="text-gray-500">應支付給</span>
+                                                                    <span className="font-bold text-gray-800">{item.to}</span>
+                                                                </div>
+                                                                <div className="font-bold text-blue-600 text-lg">
+                                                                    NT$ {item.amount.toLocaleString()}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
 
                                         {/* 支出記錄 */}
                                         <div>
