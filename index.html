@@ -321,18 +321,24 @@
             const [showAddUserToGroup, setShowAddUserToGroup] = useState(null);
             const [showGroupMembers, setShowGroupMembers] = useState(null);
 
+            // 1. 修改 useEffect：確保讀取時處理非同步
             useEffect(() => {
-                loadData();
+                const fetchData = async () => {
+                    await loadData();
+                };
+                fetchData();
             }, []);
 
+            // 2. 修改 loadData：加上 async 並改用 firebaseService
             const loadData = async () => {
                 try {
-                    const allUsers = safeLocalStorage.getItem('users', {});
-                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    // 這裡一定要加 await！
+                    const allUsers = await firebaseService.getItem('users', {});
+                    const allGroups = await firebaseService.getItem('groups', {});
                     
-                    // 確保總是設定為有效物件
-                    setUsers(allUsers && typeof allUsers === 'object' ? allUsers : {});
-                    setGroups(allGroups && typeof allGroups === 'object' ? allGroups : {});
+                    // 確保讀出來的是物件，避免報錯
+                    setUsers(allUsers || {});
+                    setGroups(allGroups || {});
                 } catch (error) {
                     console.error('載入資料失敗:', error);
                     setUsers({});
