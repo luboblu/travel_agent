@@ -184,7 +184,6 @@
                         setError('用戶名或密碼錯誤');
                         return;
                     }
-                    // 儲存登入狀態
                     safeLocalStorage.setItem('currentUser', users[username]);
                     onLogin(users[username]);
                 }
@@ -275,56 +274,86 @@
             }, []);
 
             const loadData = () => {
-                const allUsers = safeLocalStorage.getItem('users', {});
-                const allGroups = safeLocalStorage.getItem('groups', {});
-                setUsers(allUsers || {});
-                setGroups(allGroups || {});
+                try {
+                    const allUsers = safeLocalStorage.getItem('users', {});
+                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    
+                    // 確保總是設定為有效物件
+                    setUsers(allUsers && typeof allUsers === 'object' ? allUsers : {});
+                    setGroups(allGroups && typeof allGroups === 'object' ? allGroups : {});
+                } catch (error) {
+                    console.error('載入資料失敗:', error);
+                    setUsers({});
+                    setGroups({});
+                }
             };
 
             const addUserToGroup = (username, groupId) => {
-                const allGroups = safeLocalStorage.getItem('groups', {});
-
-                if (!allGroups[groupId].members.includes(username)) {
-                    allGroups[groupId].members.push(username);
+                try {
+                    const allGroups = safeLocalStorage.getItem('groups', {});
                     
-                    if (!allGroups[groupId].data.personalData[username]) {
-                        allGroups[groupId].data.personalData[username] = {
-                            packingItems: [],
-                            expenses: []
-                        };
-                    }
-                    
-                    if (!allGroups[groupId].data.splitBillData.members.includes(username)) {
-                        allGroups[groupId].data.splitBillData.members.push(username);
+                    if (!allGroups[groupId]) {
+                        alert('群組不存在');
+                        return;
                     }
 
-                    safeLocalStorage.setItem('groups', allGroups);
-                    loadData();
-                    alert(`已將 ${username} 加入群組！`);
+                    if (!allGroups[groupId].members.includes(username)) {
+                        allGroups[groupId].members.push(username);
+                        
+                        if (!allGroups[groupId].data.personalData[username]) {
+                            allGroups[groupId].data.personalData[username] = {
+                                packingItems: [],
+                                expenses: []
+                            };
+                        }
+                        
+                        if (!allGroups[groupId].data.splitBillData.members.includes(username)) {
+                            allGroups[groupId].data.splitBillData.members.push(username);
+                        }
+
+                        safeLocalStorage.setItem('groups', allGroups);
+                        loadData();
+                        alert(`已將 ${username} 加入群組！`);
+                    }
+                } catch (error) {
+                    console.error('加入群組失敗:', error);
+                    alert('操作失敗，請重試');
                 }
             };
 
             const removeUserFromGroup = (username, groupId) => {
                 if (!confirm(`確定要將 ${username} 從群組移除嗎？`)) return;
 
-                const allGroups = safeLocalStorage.getItem('groups', {});
-                
-                allGroups[groupId].members = allGroups[groupId].members.filter(m => m !== username);
-                allGroups[groupId].data.splitBillData.members = allGroups[groupId].data.splitBillData.members.filter(m => m !== username);
-                
-                safeLocalStorage.setItem('groups', allGroups);
-                loadData();
-                alert(`已將 ${username} 從群組移除`);
+                try {
+                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    
+                    if (allGroups[groupId]) {
+                        allGroups[groupId].members = allGroups[groupId].members.filter(m => m !== username);
+                        allGroups[groupId].data.splitBillData.members = allGroups[groupId].data.splitBillData.members.filter(m => m !== username);
+                        
+                        safeLocalStorage.setItem('groups', allGroups);
+                        loadData();
+                        alert(`已將 ${username} 從群組移除`);
+                    }
+                } catch (error) {
+                    console.error('移除用戶失敗:', error);
+                    alert('操作失敗，請重試');
+                }
             };
 
             const deleteGroup = (groupId, groupName) => {
                 if (!confirm(`確定要刪除群組「${groupName}」嗎？此操作無法復原！`)) return;
 
-                const allGroups = safeLocalStorage.getItem('groups', {});
-                delete allGroups[groupId];
-                safeLocalStorage.setItem('groups', allGroups);
-                loadData();
-                alert(`群組「${groupName}」已刪除`);
+                try {
+                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    delete allGroups[groupId];
+                    safeLocalStorage.setItem('groups', allGroups);
+                    loadData();
+                    alert(`群組「${groupName}」已刪除`);
+                } catch (error) {
+                    console.error('刪除群組失敗:', error);
+                    alert('操作失敗，請重試');
+                }
             };
 
             const clearAllData = () => {
@@ -336,8 +365,9 @@
                 window.location.reload();
             };
 
-            const userList = Object.values(users || {});
-            const groupList = Object.values(groups || {});
+            // 安全轉換為陣列
+            const userList = users && typeof users === 'object' ? Object.values(users) : [];
+            const groupList = groups && typeof groups === 'object' ? Object.values(groups) : [];
 
             return (
                 <div className="min-h-screen bg-gray-100">
@@ -381,7 +411,7 @@
                                     <div>
                                         <p className="text-gray-600 text-sm">管理員數</p>
                                         <p className="text-3xl font-bold text-green-600">
-                                            {userList.filter(u => u.role === 'admin').length}
+                                            {userList.filter(u => u && u.role === 'admin').length}
                                         </p>
                                     </div>
                                     <UserPlus className="w-12 h-12 text-green-300" />
@@ -434,7 +464,8 @@
                                 ) : (
                                     <div className="space-y-4">
                                         {userList.map(u => {
-                                            const userGroups = groupList.filter(g => g.members && g.members.includes(u.username));
+                                            if (!u || !u.username) return null;
+                                            const userGroups = groupList.filter(g => g && g.members && Array.isArray(g.members) && g.members.includes(u.username));
                                             return (
                                                 <div key={u.username} className="border-2 border-gray-200 rounded-xl p-5 hover:border-blue-300 transition-colors">
                                                     <div className="flex items-start justify-between mb-3">
@@ -502,53 +533,56 @@
                                     <p className="text-gray-400 text-center py-8">還沒有群組</p>
                                 ) : (
                                     <div className="space-y-4">
-                                        {groupList.map(g => (
-                                            <div key={g.id} className="border-2 border-gray-200 rounded-xl p-5 hover:border-purple-300 transition-colors">
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <div className="text-3xl">✈️</div>
-                                                            <div>
-                                                                <h3 className="text-xl font-bold text-gray-800">{g.name}</h3>
-                                                                <p className="text-sm text-gray-600">
-                                                                    建立者: {g.createdBy} • {new Date(g.createdAt).toLocaleDateString('zh-TW')}
-                                                                </p>
+                                        {groupList.map(g => {
+                                            if (!g || !g.id) return null;
+                                            return (
+                                                <div key={g.id} className="border-2 border-gray-200 rounded-xl p-5 hover:border-purple-300 transition-colors">
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                <div className="text-3xl">✈️</div>
+                                                                <div>
+                                                                    <h3 className="text-xl font-bold text-gray-800">{g.name}</h3>
+                                                                    <p className="text-sm text-gray-600">
+                                                                        建立者: {g.createdBy} • {new Date(g.createdAt).toLocaleDateString('zh-TW')}
+                                                                    </p>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => deleteGroup(g.id, g.name)}
-                                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center gap-2"
-                                                    >
-                                                        <Trash className="w-4 h-4" />
-                                                        刪除群組
-                                                    </button>
-                                                </div>
-                                                <div className="bg-gray-50 rounded-lg p-4">
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <p className="text-sm font-semibold text-gray-700">
-                                                            成員列表 ({g.members ? g.members.length : 0} 位)
-                                                        </p>
                                                         <button
-                                                            onClick={() => setShowGroupMembers(g.id)}
-                                                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                                            onClick={() => deleteGroup(g.id, g.name)}
+                                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center gap-2"
                                                         >
-                                                            管理成員 →
+                                                            <Trash className="w-4 h-4" />
+                                                            刪除群組
                                                         </button>
                                                     </div>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {(g.members || []).map(member => (
-                                                            <span key={member} className="px-3 py-1 bg-white border border-gray-300 rounded-full text-sm">
-                                                                {member}
-                                                                {users[member]?.role === 'admin' && (
-                                                                    <span className="ml-1 text-red-600">👑</span>
-                                                                )}
-                                                            </span>
-                                                        ))}
+                                                    <div className="bg-gray-50 rounded-lg p-4">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <p className="text-sm font-semibold text-gray-700">
+                                                                成員列表 ({g.members && Array.isArray(g.members) ? g.members.length : 0} 位)
+                                                            </p>
+                                                            <button
+                                                                onClick={() => setShowGroupMembers(g.id)}
+                                                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                                            >
+                                                                管理成員 →
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {g.members && Array.isArray(g.members) && g.members.map(member => (
+                                                                <span key={member} className="px-3 py-1 bg-white border border-gray-300 rounded-full text-sm">
+                                                                    {member}
+                                                                    {users[member] && users[member].role === 'admin' && (
+                                                                        <span className="ml-1 text-red-600">👑</span>
+                                                                    )}
+                                                                </span>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -610,7 +644,8 @@
                                 ) : (
                                     <div className="space-y-3">
                                         {groupList.map(g => {
-                                            const isMember = g.members && g.members.includes(showAddUserToGroup);
+                                            if (!g || !g.id) return null;
+                                            const isMember = g.members && Array.isArray(g.members) && g.members.includes(showAddUserToGroup);
                                             return (
                                                 <div key={g.id} className={`border-2 rounded-lg p-4 ${
                                                     isMember ? 'border-green-300 bg-green-50' : 'border-gray-200 hover:border-blue-300'
@@ -619,7 +654,7 @@
                                                         <div className="flex-1">
                                                             <h4 className="font-bold text-gray-800">{g.name}</h4>
                                                             <p className="text-sm text-gray-600">
-                                                                成員: {g.members ? g.members.length : 0} 位
+                                                                成員: {g.members && Array.isArray(g.members) ? g.members.length : 0} 位
                                                             </p>
                                                         </div>
                                                         {isMember ? (
@@ -663,10 +698,10 @@
                                 </div>
                                 <div className="mb-6">
                                     <h4 className="font-bold text-gray-700 mb-3">
-                                        當前成員 ({groups[showGroupMembers]?.members ? groups[showGroupMembers].members.length : 0})
+                                        當前成員 ({groups[showGroupMembers]?.members && Array.isArray(groups[showGroupMembers].members) ? groups[showGroupMembers].members.length : 0})
                                     </h4>
                                     <div className="space-y-2">
-                                        {(groups[showGroupMembers]?.members || []).map(member => (
+                                        {groups[showGroupMembers]?.members && Array.isArray(groups[showGroupMembers].members) && groups[showGroupMembers].members.map(member => (
                                             <div key={member} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -674,7 +709,7 @@
                                                     </div>
                                                     <span className="font-medium text-gray-800">
                                                         {member}
-                                                        {users[member]?.role === 'admin' && (
+                                                        {users[member] && users[member].role === 'admin' && (
                                                             <span className="ml-2 text-red-600">👑</span>
                                                         )}
                                                     </span>
@@ -694,12 +729,12 @@
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-gray-700 mb-3">可加入的用戶</h4>
-                                    {userList.filter(u => !(groups[showGroupMembers]?.members || []).includes(u.username)).length === 0 ? (
+                                    {userList.filter(u => u && u.username && !(groups[showGroupMembers]?.members && Array.isArray(groups[showGroupMembers].members) && groups[showGroupMembers].members.includes(u.username))).length === 0 ? (
                                         <p className="text-gray-400 text-center py-4">所有用戶都已在此群組中</p>
                                     ) : (
                                         <div className="space-y-2">
                                             {userList
-                                                .filter(u => !(groups[showGroupMembers]?.members || []).includes(u.username))
+                                                .filter(u => u && u.username && !(groups[showGroupMembers]?.members && Array.isArray(groups[showGroupMembers].members) && groups[showGroupMembers].members.includes(u.username)))
                                                 .map(u => (
                                                     <div key={u.username} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                                                         <div className="flex items-center gap-3">
@@ -731,19 +766,25 @@
         function GroupSelectionPage({ user, onSelectGroup, onLogout, onOpenAdmin }) {
             const [groups, setGroups] = useState({});
             const [showCreateGroup, setShowCreateGroup] = useState(false);
+            const [refreshTrigger, setRefreshTrigger] = useState(0);
 
             useEffect(() => {
                 loadGroups();
-            }, []);
+            }, [refreshTrigger]);
 
             const loadGroups = () => {
-                const allGroups = safeLocalStorage.getItem('groups', {});
-                setGroups(allGroups || {});
+                try {
+                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    setGroups(allGroups && typeof allGroups === 'object' ? allGroups : {});
+                } catch (error) {
+                    console.error('載入群組失敗:', error);
+                    setGroups({});
+                }
             };
 
-            const userGroups = Object.values(groups || {}).filter(g => 
-                g.members && g.members.includes(user.username)
-            );
+            const userGroups = groups && typeof groups === 'object' 
+                ? Object.values(groups).filter(g => g && g.members && Array.isArray(g.members) && g.members.includes(user.username))
+                : [];
 
             const handleCreateGroup = (e) => {
                 e.preventDefault();
@@ -755,37 +796,42 @@
                     return;
                 }
 
-                const groupId = `group_${Date.now()}`;
-                const newGroup = {
-                    id: groupId,
-                    name: groupName,
-                    createdBy: user.username,
-                    createdAt: new Date().toISOString(),
-                    members: [user.username],
-                    data: {
-                        todoItems: [],
-                        itinerary: [],
-                        splitBillData: {
-                            members: [user.username],
-                            publicBudget: 0,
-                            expenses: []
-                        },
-                        personalData: {
-                            [user.username]: {
-                                packingItems: [],
+                try {
+                    const groupId = `group_${Date.now()}`;
+                    const newGroup = {
+                        id: groupId,
+                        name: groupName,
+                        createdBy: user.username,
+                        createdAt: new Date().toISOString(),
+                        members: [user.username],
+                        data: {
+                            todoItems: [],
+                            itinerary: [],
+                            splitBillData: {
+                                members: [user.username],
+                                publicBudget: 0,
                                 expenses: []
+                            },
+                            personalData: {
+                                [user.username]: {
+                                    packingItems: [],
+                                    expenses: []
+                                }
                             }
                         }
-                    }
-                };
+                    };
 
-                const allGroups = safeLocalStorage.getItem('groups', {});
-                allGroups[groupId] = newGroup;
-                safeLocalStorage.setItem('groups', allGroups);
-                
-                setShowCreateGroup(false);
-                loadGroups(); // 重新載入群組列表
-                alert(`群組「${groupName}」建立成功！`);
+                    const allGroups = safeLocalStorage.getItem('groups', {});
+                    allGroups[groupId] = newGroup;
+                    safeLocalStorage.setItem('groups', allGroups);
+                    
+                    setShowCreateGroup(false);
+                    setRefreshTrigger(prev => prev + 1); // 強制重新載入
+                    alert(`群組「${groupName}」建立成功！`);
+                } catch (error) {
+                    console.error('建立群組失敗:', error);
+                    alert('建立群組失敗，請重試');
+                }
             };
 
             return (
@@ -866,7 +912,7 @@
                                             </div>
                                             <div className="flex items-center gap-2 text-sm text-gray-600">
                                                 <Users className="w-4 h-4" />
-                                                <span>{group.members ? group.members.length : 0} 位成員</span>
+                                                <span>{group.members && Array.isArray(group.members) ? group.members.length : 0} 位成員</span>
                                             </div>
                                             {group.createdBy === user.username && (
                                                 <div className="mt-3 pt-3 border-t border-gray-100">
@@ -1791,7 +1837,9 @@
                     </div>
                 );
             }
-        // ==================== Part 3 開始（修正版）====================
+
+            // ==================== Part 2 結束，Part 3 將包含分帳和匯率 ====================
+            // ==================== Part 3 開始（修正版）====================
             // 分帳系統 + 匯率換算 + 主程式（含自動登入）
 
             // ==================== 分帳系統 Tab ====================
