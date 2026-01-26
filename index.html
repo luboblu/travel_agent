@@ -1086,19 +1086,19 @@
 
             // 儲存群組資料
            // 用這段取代原本的 saveGroupData 內容
-            const saveGroupData = async (newData) => {
+            const saveGroupData = async (newData) => { // <--- 1. 加上 async
                 try {
-                    // 1. 先從雲端讀取最新的群組列表 (加 await)
+                    // <--- 2. 改用 await firebaseService 讀取最新群組列表
                     const allGroups = await firebaseService.getItem('groups', {});
-
-                    // 2. 更新目前群組的資料
+                    
                     if (allGroups[group.id]) {
+                        // 更新目前這個群組的資料
                         allGroups[group.id].data = newData;
-
-                        // 3. 寫回雲端 (加 await)
+                        
+                        // <--- 3. 改用 await firebaseService 儲存
                         await firebaseService.setItem('groups', allGroups);
-
-                        // 4. 更新畫面
+                        
+                        // 更新畫面
                         setGroupData(newData);
                     }
                 } catch (error) {
@@ -1969,7 +1969,7 @@
                 const [editingItem, setEditingItem] = useState(null);
                 const splitData = groupData.splitBillData;
 
-                const handleAddExpense = (e) => {
+                const handleAddExpense = async (e) => {
                     e.preventDefault();
                     const formData = new FormData(e.target);
                     
@@ -2005,7 +2005,10 @@
                     } else {
                         newData.splitBillData.expenses.push(newExpense);
                     }
-                    saveGroupData(newData);
+                    
+                
+                    await saveGroupData(newData); 
+                    
                     setShowAddForm(false);
                     e.target.reset();
                 };
@@ -2016,11 +2019,14 @@
                     setShowAddForm(true);
                 };
 
-                const handleDelete = (index) => {
+                const handleDelete = async (index) => { // <--- 加上 async
                     if (!confirm('確定要刪除這筆分帳記錄嗎？')) return;
+                    
                     const newData = { ...groupData };
                     newData.splitBillData.expenses.splice(index, 1);
-                    saveGroupData(newData);
+                    
+                    // <--- 重點：加上 await
+                    await saveGroupData(newData); 
                 };
 
                 // 計算每個人的結算
