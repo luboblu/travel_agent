@@ -232,7 +232,7 @@
                         return;
                     }
                     // <--- 4. 這裡也要改！儲存登入狀態
-                    await firebaseService.setItem('currentUser', users[username]);
+                    localStorage.setItem('currentUser', JSON.stringify(users[username]));
                     onLogin(users[username]);
                 }
             } catch (err) {
@@ -2656,14 +2656,11 @@
             // 檢查是否有儲存的登入狀態
             // ✅ 這是新的，使用 firebaseService 並且正確處理非同步
             useEffect(() => {
-            const checkLogin = async () => {
-                try {
-                    // ✅ 加上這段：等待 Firebase 初始化
-                    if (!db) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                    }
-                    
-                    const savedUser = await firebaseService.getItem('currentUser');
+    const checkLogin = async () => {
+        try {
+            // ✅ 改用 localStorage（不需要 async）
+            const savedUserStr = localStorage.getItem('currentUser');
+            const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
                     
                     if (savedUser && savedUser.username) {
                         // 為了保險，再重新去雲端抓一次最新的使用者資料
@@ -2682,23 +2679,17 @@
             checkLogin(); // 執行檢查
         }, []);
 
-            const handleLogin = async (userData) => {
-                setUser(userData);
-                await firebaseService.setItem('currentUser', userData);
-            };
+            const handleLogin = (userData) => {
+    setUser(userData);
+    localStorage.setItem('currentUser', JSON.stringify(userData));
+};
 
-            const handleLogout = async () => {
+            const handleLogout = () => {
                     setUser(null);
                     setCurrentGroup(null);
                     setShowAdmin(false);
-                    // ✅ 改用刪除而不是設為 null
-                    try {
-                        await db.collection('travel_app').doc('storage').update({
-                            currentUser: firebase.firestore.FieldValue.delete()
-                        });
-                    } catch (error) {
-                        console.error('登出失敗:', error);
-                    }
+                    // ✅ 改用 localStorage（不需要 async）
+                    localStorage.removeItem('currentUser');
                 };
 
             const handleSelectGroup = (group) => {
