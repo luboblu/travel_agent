@@ -856,7 +856,11 @@
             const [showCreateGroup, setShowCreateGroup] = useState(false);
             const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-            // 1. 修改 useEffect：確保讀取時處理非同步
+            // 組件載入時強制刷新一次
+            useEffect(() => {
+                setRefreshTrigger(prev => prev + 1);
+            }, []);
+
             useEffect(() => {
                 const fetchData = async () => {
                     await loadGroups();
@@ -2646,9 +2650,13 @@
             // 檢查是否有儲存的登入狀態
             // ✅ 這是新的，使用 firebaseService 並且正確處理非同步
             useEffect(() => {
-            const checkLogin = async () => { // 建立一個 async 函式
+            const checkLogin = async () => {
                 try {
-                    // 改用 firebaseService 檢查是否有登入紀錄
+                    // ✅ 加上這段：等待 Firebase 初始化
+                    if (!db) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                    
                     const savedUser = await firebaseService.getItem('currentUser');
                     
                     if (savedUser && savedUser.username) {
@@ -2674,11 +2682,18 @@
             };
 
             const handleLogout = async () => {
-                setUser(null);
-                setCurrentGroup(null);
-                setShowAdmin(false);
-                await firebaseService.setItem('currentUser', null);
-            };
+                    setUser(null);
+                    setCurrentGroup(null);
+                    setShowAdmin(false);
+                    // ✅ 改用刪除而不是設為 null
+                    try {
+                        await db.collection('travel_app').doc('storage').update({
+                            currentUser: firebase.firestore.FieldValue.delete()
+                        });
+                    } catch (error) {
+                        console.error('登出失敗:', error);
+                    }
+                };
 
             const handleSelectGroup = (group) => {
                 setCurrentGroup(group);
