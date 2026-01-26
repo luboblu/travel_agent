@@ -2522,22 +2522,22 @@
                             </div>
                         )}
 
-                        <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
-                            <div className="space-y-6">
+                        <div className="bg-white rounded-xl shadow-lg p-4 md:p-8 mb-6">
+                            <div className="space-y-4 md:space-y-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">從</label>
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                         <select
                                             value={fromCurrency}
                                             onChange={(e) => {
                                                 setFromCurrency(e.target.value);
                                                 if (fromAmount) handleFromAmountChange(fromAmount);
                                             }}
-                                            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                            className="w-full sm:w-32 px-3 md:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm md:text-base"
                                         >
                                             {currencies.map(c => (
                                                 <option key={c.code} value={c.code}>
-                                                    {c.flag} {c.code} - {c.name}
+                                                    {c.flag} {c.code}
                                                 </option>
                                             ))}
                                         </select>
@@ -2546,7 +2546,7 @@
                                             value={fromAmount}
                                             onChange={(e) => handleFromAmountChange(e.target.value)}
                                             placeholder="輸入金額"
-                                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            className="flex-1 px-3 md:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
                                         />
                                     </div>
                                 </div>
@@ -2562,18 +2562,18 @@
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">到</label>
-                                    <div className="flex gap-3">
+                                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                                         <select
                                             value={toCurrency}
                                             onChange={(e) => {
                                                 setToCurrency(e.target.value);
                                                 if (fromAmount) handleFromAmountChange(fromAmount);
                                             }}
-                                            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                            className="w-full sm:w-32 px-3 md:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm md:text-base"
                                         >
                                             {currencies.map(c => (
                                                 <option key={c.code} value={c.code}>
-                                                    {c.flag} {c.code} - {c.name}
+                                                    {c.flag} {c.code}
                                                 </option>
                                             ))}
                                         </select>
@@ -2582,12 +2582,11 @@
                                             value={toAmount}
                                             onChange={(e) => handleToAmountChange(e.target.value)}
                                             placeholder="換算結果"
-                                            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            className="flex-1 px-3 md:px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm md:text-base"
                                         />
                                     </div>
                                 </div>
                             </div>
-
                             {rates && fromAmount && (
                                 <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
                                     <p className="text-sm text-gray-700 text-center">
