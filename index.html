@@ -2597,11 +2597,26 @@
                             )}
                         </div>
 
-                        <div className="bg-white rounded-xl shadow-md p-6">
+                        <div className="bg-white rounded-xl shadow-md p-4 md:p-6">
                             <h3 className="text-lg font-bold text-gray-800 mb-4">快速參考（以 TWD 為基準）</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            
+                            {/* 手機版：橫向滑動 */}
+                            <div className="md:hidden flex gap-2 overflow-x-auto pb-2">
                                 {currencies.filter(c => c.code !== 'TWD').map(c => (
-                                    <div key={c.code} className="p-3 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg">
+                                    <div key={c.code} className="flex-shrink-0 w-20 p-2 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg text-center">
+                                        <div className="text-xl mb-1">{c.flag}</div>
+                                        <p className="text-xs text-gray-600">{c.code}</p>
+                                        <p className="text-xs font-bold text-gray-800">
+                                            {rates ? rates[c.code].toFixed(3) : '---'}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {/* 平板/電腦版：Grid 布局 */}
+                            <div className="hidden md:grid grid-cols-5 gap-3">
+                                {currencies.filter(c => c.code !== 'TWD').map(c => (
+                                    <div key={c.code} className="p-3 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg text-center">
                                         <div className="text-2xl mb-1">{c.flag}</div>
                                         <p className="text-xs text-gray-600">{c.code}</p>
                                         <p className="text-sm font-bold text-gray-800">
