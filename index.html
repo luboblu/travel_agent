@@ -973,27 +973,28 @@
                 try {
                     const groupId = `group_${Date.now()}`;
                     const newGroup = {
-                        id: groupId,
-                        name: groupName,
-                        createdBy: user.username,
-                        createdAt: new Date().toISOString(),
-                        members: [user.username],
-                        data: {
-                            todoItems: [],
-                            itinerary: [],
-                            splitBillData: {
-                                members: [user.username],
-                                publicBudget: 0,
-                                expenses: []
-                            },
-                            personalData: {
-                                [user.username]: {
-                                    packingItems: [],
+                            id: groupId,
+                            name: groupName,
+                            createdBy: user.username,
+                            createdAt: new Date().toISOString(),
+                            members: [user.username],
+                            data: {
+                                todoItems: [],
+                                itinerary: [],
+                                messages: [],  // ✅ 加這行
+                                splitBillData: {
+                                    members: [user.username],
+                                    publicBudget: 0,
                                     expenses: []
+                                },
+                                personalData: {
+                                    [user.username]: {
+                                        packingItems: [],
+                                        expenses: []
+                                    }
                                 }
                             }
-                        }
-                    };
+                        };
 
                     // <--- 2. 這裡原本可能是 safeLocalStorage，改成這樣：
                     const allGroups = await firebaseService.getItem('groups', {});
@@ -2027,6 +2028,137 @@
                     </div>
                 );
             }
+            // ==================== 聊天室 Tab ====================
+function ChatTab() {
+    const [message, setMessage] = useState('');
+    const [messages, setMessages] = useState(groupData.messages || []);
+    const messagesEndRef = React.useRef(null);
+
+    // 自動滾動到最新訊息
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    // 定期刷新訊息（每5秒）
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            try {
+                const allGroups = await firebaseService.getItem('groups', {});
+                if (allGroups[group.id]) {
+                    setMessages(allGroups[group.id].data.messages || []);
+                }
+            } catch (error) {
+                console.error('刷新訊息失敗:', error);
+            }
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleSend = async (e) => {
+        e.preventDefault();
+        if (!message.trim()) return;
+
+        const newMessage = {
+            id: Date.now(),
+            sender: user.username,
+            message: message.trim(),
+            timestamp: new Date().toISOString()
+        };
+
+        const newData = { ...groupData };
+        if (!newData.messages) newData.messages = [];
+        newData.messages.push(newMessage);
+        
+        await saveGroupData(newData);
+        setMessages(newData.messages);
+        setMessage('');
+    };
+
+    const formatTime = (timestamp) => {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffInHours = (now - date) / (1000 * 60 * 60);
+
+        if (diffInHours < 24) {
+            return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+        } else {
+            return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' }) + ' ' +
+                   date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+        }
+    };
+
+    return (
+        <div className="flex flex-col h-[calc(100vh-300px)] md:h-[600px]">
+            <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">群組聊天</h2>
+                <p className="text-sm text-gray-600">成員: {group.members.join(', ')}</p>
+            </div>
+
+            {/* 訊息列表 */}
+            <div className="flex-1 bg-white rounded-xl shadow-md p-4 mb-4 overflow-y-auto">
+                {messages.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-gray-400">
+                        <div className="text-center">
+                            <div className="text-4xl mb-2">💬</div>
+                            <p>還沒有訊息，開始聊天吧！</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {messages.map((msg) => {
+                            const isMe = msg.sender === user.username;
+                            return (
+                                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[70%] md:max-w-[60%] ${isMe ? 'order-2' : 'order-1'}`}>
+                                        {!isMe && (
+                                            <p className="text-xs text-gray-600 mb-1 ml-2">{msg.sender}</p>
+                                        )}
+                                        <div className={`rounded-2xl px-4 py-2 ${
+                                            isMe 
+                                                ? 'bg-blue-600 text-white rounded-br-none' 
+                                                : 'bg-gray-200 text-gray-800 rounded-bl-none'
+                                        }`}>
+                                            <p className="break-words whitespace-pre-wrap">{msg.message}</p>
+                                            <p className={`text-xs mt-1 ${isMe ? 'text-blue-100' : 'text-gray-500'}`}>
+                                                {formatTime(msg.timestamp)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <div ref={messagesEndRef} />
+                    </div>
+                )}
+            </div>
+
+            {/* 輸入框 */}
+            <form onSubmit={handleSend} className="bg-white rounded-xl shadow-md p-3 flex gap-2">
+                <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="輸入訊息..."
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    maxLength={500}
+                />
+                <button
+                    type="submit"
+                    disabled={!message.trim()}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                    <span className="hidden sm:inline">發送</span>
+                    <span className="text-lg">📤</span>
+                </button>
+            </form>
+        </div>
+    );
+}
 
             // ==================== Part 2 結束，Part 3 將包含分帳和匯率 ====================
             // ==================== Part 3 開始（修正版）====================
@@ -2715,6 +2847,17 @@
                                     <TrendingUp className="w-4 h-4" />
                                     匯率換算
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('chat')}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                                        activeTab === 'chat'
+                                            ? 'bg-pink-600 text-white'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    <span className="text-base">💬</span>
+                                    群組聊天
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -2726,6 +2869,7 @@
                         {activeTab === 'personal' && <PersonalExpenseTab />}
                         {activeTab === 'split' && <SplitBillTab />}
                         {activeTab === 'currency' && <CurrencyTab />}
+                        {activeTab === 'chat' && <ChatTab />}
                     </div>
                 </div>
             );
