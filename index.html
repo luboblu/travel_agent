@@ -4,6 +4,76 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>旅行規劃師 - 雲端版</title>
+    <style>
+        /* 防止橫向滾動 */
+        body {
+            overflow-x: hidden;
+        }
+        
+        /* 確保所有容器不會超出螢幕 */
+        * {
+            box-sizing: border-box;
+        }
+        
+        /* 手機版：表單輸入框更大，方便點擊 */
+        @media (max-width: 768px) {
+            input, select, textarea, button {
+                font-size: 16px !important; /* 防止 iOS 自動縮放 */
+            }
+            
+            /* 手機版：padding 調整 */
+            .max-w-7xl {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            
+            /* 手機版：表單間距調整 */
+            form > div {
+                margin-bottom: 0.75rem;
+            }
+            
+            /* 手機版：彈窗全螢幕 */
+            .fixed .max-w-md,
+            .fixed .max-w-2xl {
+                max-width: 95vw !important;
+                max-height: 90vh !important;
+            }
+        }
+        
+        /* 平板版：微調 */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .max-w-7xl {
+                padding-left: 1.5rem;
+                padding-right: 1.5rem;
+            }
+        }
+        
+        /* 確保圖片不會超出容器 */
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* 平滑滾動 */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* 觸控友善：增加按鈕的點擊區域 */
+        button, a {
+            min-height: 44px; /* iOS 建議的最小觸控區域 */
+        
+        }
+        /* 隱藏滾動條但保持可滑動 */
+        .overflow-x-auto {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        .overflow-x-auto::-webkit-scrollbar {
+            display: none;  /* Chrome, Safari, Opera */
+        }
+    </style>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
