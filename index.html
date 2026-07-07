@@ -1177,7 +1177,7 @@ function Split({ data, members, me, save }) {
         <p className="text-sm font-medium mb-2">✨ AI 記帳</p>
         <div className="flex gap-2">
           <input value={aiText} onChange={e=>setAiText(e.target.value)}
-            placeholder="例如：我付了 3000 晚餐大家分／bob 幫傻比包柏付 1000 午餐"
+            placeholder="小明付了 3000 晚餐大家分／小明幫小美付 1000 午餐"
             onKeyDown={aiEnter.onKeyDown} disabled={aiBusy}
             className={cx('flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm', aiEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
           <button onClick={aiAdd} disabled={aiBusy}
