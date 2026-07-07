@@ -148,6 +148,50 @@ const fnErr = (e) =>
   e?.status === 401 ? '請先登入再使用 AI 功能' :
   'AI 服務暫時無法使用，請稍後再試；若持續發生，請聯絡管理員';
 
+/* ------------------------- 匯率換算（以 TWD 為基準） ------------------------ */
+const BASE_CCY = 'TWD';
+const CCYS = ['TWD','JPY','USD','KRW','EUR','CNY','HKD','THB','SGD','GBP','AUD','VND','MYR','PHP','IDR'];
+let _fxCache = null; // { at, rates }；rates[c] = 1 TWD 可換多少 c
+async function fxRates() {
+  const TTL = 12 * 3600 * 1000;
+  if (_fxCache && Date.now() - _fxCache.at < TTL) return _fxCache.rates;
+  try {
+    const raw = localStorage.getItem('fxRates');
+    if (raw) { const c = JSON.parse(raw); if (c?.rates && Date.now() - c.at < TTL) { _fxCache = c; return c.rates; } }
+  } catch {}
+  const res = await fetch(`https://open.er-api.com/v6/latest/${BASE_CCY}`);
+  if (!res.ok) throw new Error('fx ' + res.status);
+  const j = await res.json();
+  if (j.result !== 'success' || !j.rates) throw new Error('fx-bad');
+  _fxCache = { at: Date.now(), rates: j.rates };
+  try { localStorage.setItem('fxRates', JSON.stringify(_fxCache)); } catch {}
+  return j.rates;
+}
+// 把 amount(ccy) 換算成 TWD；抓不到匯率則 noRate=true、金額原樣帶回（不靜默混算）
+async function toTWD(amount, ccy) {
+  const c = String(ccy || BASE_CCY).toUpperCase();
+  if (c === BASE_CCY) return { amountBase: amount, ccy: c, noRate: false };
+  try {
+    const rates = await fxRates();
+    const r = rates[c];
+    if (!r) return { amountBase: amount, ccy: c, noRate: true };
+    return { amountBase: Math.round(amount / r), ccy: c, noRate: false };
+  } catch {
+    return { amountBase: amount, ccy: c, noRate: true };
+  }
+}
+// 支出換算後的 TWD 金額（舊資料沒有 amountBase 就用 amount，視為已是 TWD）
+const baseAmt = (e) => {
+  const b = Number(e.amountBase);
+  return Number.isFinite(b) ? b : (Number(e.amount) || 0);
+};
+const isForeign = (e) => String(e.ccy || BASE_CCY).toUpperCase() !== BASE_CCY;
+// 顯示原幣金額，例如「1,200 JPY」或「NT$1,200」
+const fmtOrig = (e) => {
+  const n = (Number(e.amount) || 0).toLocaleString();
+  return isForeign(e) ? `${n} ${String(e.ccy).toUpperCase()}` : `NT$${n}`;
+};
+
 /* --------------------------------- icons -------------------------------- */
 const I = {
   map:  <path d="M9 3 4 5v16l5-2 6 2 5-2V3l-5 2-6-2Z"/>,
@@ -1043,7 +1087,7 @@ function Checklist({ items, save, placeholder }) {
 /* -------------------------------- split -------------------------------- */
 function Split({ data, members, me, save }) {
   const names = Object.values(members);
-  const [form, setForm] = useState({ title:'', amount:'', payer: me.displayName, participants: names });
+  const [form, setForm] = useState({ title:'', amount:'', ccy: BASE_CCY, payer: me.displayName, participants: names });
   const [aiText, setAiText] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState('');
@@ -1097,11 +1141,12 @@ function Split({ data, members, me, save }) {
           '- 「請客/我請/請大家/招待/我出這餐/我請客」表示付款人自行吸收、其他人不用分攤，participants 只放付款人自己一人。\n' +
           '- 「還/還錢/還給/拿現金給/轉給 B」是還款：payer 是拿出錢的人，participants 只放收到錢的人一人，title 用「還款」。\n' +
           '- 如果只說「我付了 3000 午餐」但沒說幫誰，預設 participants 是所有群組成員。\n' +
-          'title 是消費項目（10 字內）；amount 是數字金額（不含幣別符號）。',
+          'title 是消費項目（10 字內）；amount 是數字金額（不含幣別符號）。' +
+          'currency 是幣別代碼（TWD/JPY/USD/KRW/EUR/CNY/HKD/THB 等）：句子看得出外幣（日圓/円/¥、美金/鎂/$、韓元/원、泰銖…）就填該幣別，看不出來一律填 TWD。',
         user: t,
-        schema: { type: 'OBJECT', required: ['title','amount','payer','participants'],
+        schema: { type: 'OBJECT', required: ['title','amount','currency','payer','participants'],
           properties: {
-            title: {type:'STRING'}, amount: {type:'NUMBER'}, payer: {type:'STRING'},
+            title: {type:'STRING'}, amount: {type:'NUMBER'}, currency: {type:'STRING'}, payer: {type:'STRING'},
             participants: { type:'ARRAY', items:{ type:'STRING' }, description:'要分攤這筆錢的成員名字' }
           } }
       }) || {};
@@ -1117,12 +1162,15 @@ function Split({ data, members, me, save }) {
         const payerOk = names.includes(d.payer);
         const payer = payerOk ? d.payer : me.displayName;
         const participants = cleaned.length ? cleaned : names;
-        const expense = { id: rid(), title: d.title, amount: amt, payer, participants,
+        const conv = await toTWD(amt, d.currency);
+        const expense = { id: rid(), title: d.title, amount: amt, ccy: conv.ccy,
+          amountBase: conv.amountBase, noRate: conv.noRate, payer, participants,
           at: new Date().toISOString() };
         const warns = [];
         if (!payerOk && d.payer) warns.push(`付款人「${d.payer}」不在成員名單，先當成「${payer}」付`);
         if (dropped.length) warns.push(`分攤人有對不上的名字：${dropped.join('、')}`);
         if (rawParts.length && !cleaned.length) warns.push('分攤人都對不上，先當成「全員均分」');
+        if (conv.noRate) warns.push(`「${conv.ccy}」匯率取得失敗，這筆先以原數字計入、未換算成 TWD`);
         if (warns.length) {
           setAiPending({ expense, warns });   // 有疑慮 → 等使用者確認
         } else {
@@ -1162,9 +1210,11 @@ function Split({ data, members, me, save }) {
         const amt = Number(d.amount);
         if (!amt) { setAiMsg('讀不出收據金額，請改用手動輸入'); }
         else {
-          save([...data, { id: rid(),
-            title: (d.title || '收據消費') + (d.currency && d.currency !== 'TWD' ? ` (${d.currency})` : ''),
-            amount: amt, payer: me.displayName, participants: names, at: new Date().toISOString() }]);
+          const conv = await toTWD(amt, d.currency);
+          save([...data, { id: rid(), title: d.title || '收據消費',
+            amount: amt, ccy: conv.ccy, amountBase: conv.amountBase, noRate: conv.noRate,
+            payer: me.displayName, participants: names, at: new Date().toISOString() }]);
+          if (conv.noRate) setAiMsg(`已記錄，但「${conv.ccy}」匯率取得失敗，此筆未換算成 TWD`);
         }
       } catch (e) { console.error(e); setAiMsg(fnErr(e)); }
       setAiBusy(false);
@@ -1172,11 +1222,13 @@ function Split({ data, members, me, save }) {
     r.readAsDataURL(file);
   };
 
-  const add = () => {
+  const add = async () => {
     const amt = parseFloat(form.amount);
     if (!form.title.trim() || !amt) return;
     const participants = cleanParticipants(form.participants);
-    save([...data, { id:Date.now(), title:form.title.trim(), amount:amt, payer:form.payer,
+    const conv = await toTWD(amt, form.ccy);
+    save([...data, { id:Date.now(), title:form.title.trim(), amount:amt, ccy:conv.ccy,
+      amountBase:conv.amountBase, noRate:conv.noRate, payer:form.payer,
       participants: participants.length ? participants : names, at:new Date().toISOString() }]);
     setForm({ ...form, title:'', amount:'' });
   };
@@ -1186,14 +1238,14 @@ function Split({ data, members, me, save }) {
   const settle = useMemo(()=>{
     const bal = {}; names.forEach(n=>bal[n]=0);
     data.forEach(e=>{
-      const amt = Number(e.amount) || 0;
+      const amt = baseAmt(e);
       const participants = expenseParticipants(e);
       const share = participants.length ? amt / participants.length : 0;
       if (bal[e.payer]!=null) bal[e.payer]+=amt;
       participants.forEach(n=>{ if(bal[n]!=null) bal[n]-=share; });
     });
     names.forEach(n=> bal[n] = Math.round(bal[n]));
-    return { bal, total: data.reduce((s,e)=>s+(Number(e.amount)||0),0) };
+    return { bal, total: data.reduce((s,e)=>s+baseAmt(e),0) };
   }, [data, names.join()]);
 
   return (
@@ -1220,7 +1272,9 @@ function Split({ data, members, me, save }) {
           <div className="mt-3 border border-amber2/40 bg-amber2/5 rounded-xl p-3 text-xs">
             <p className="font-medium mb-1">請確認這筆記帳（AI 可能理解有誤）</p>
             <p className="mb-1 text-slate2">
-              {aiPending.expense.payer} 付 {aiPending.expense.amount}・{splitLabel(aiPending.expense)}
+              {aiPending.expense.payer} 付 {fmtOrig(aiPending.expense)}
+              {isForeign(aiPending.expense) && !aiPending.expense.noRate ? ` (≈NT$${baseAmt(aiPending.expense).toLocaleString()})` : ''}
+              ・{splitLabel(aiPending.expense)}
             </p>
             <ul className="list-disc pl-4 mb-2 text-amber2">
               {aiPending.warns.map((w,i)=><li key={i}>{w}</li>)}
@@ -1238,8 +1292,14 @@ function Split({ data, members, me, save }) {
       <div className="bg-card border border-line rounded-2xl p-4 mb-5 grid grid-cols-2 gap-2">
         <input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="項目，例如：晚餐"
           className="col-span-2 border border-line rounded-lg px-2.5 py-2 text-sm" />
-        <input value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="金額" type="number"
-          className="border border-line rounded-lg px-2.5 py-2 text-sm" />
+        <div className="flex gap-1">
+          <input value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="金額" type="number"
+            className="flex-1 min-w-0 border border-line rounded-lg px-2.5 py-2 text-sm" />
+          <select value={form.ccy} onChange={e=>setForm({...form,ccy:e.target.value})}
+            className="w-[4.5rem] shrink-0 border border-line rounded-lg px-1 py-2 text-sm bg-card">
+            {CCYS.map(c=><option key={c}>{c}</option>)}
+          </select>
+        </div>
         <select value={form.payer} onChange={e=>setForm({...form,payer:e.target.value})}
           className="border border-line rounded-lg px-2.5 py-2 text-sm bg-card">
           {names.map(n=><option key={n}>{n}</option>)}
@@ -1266,8 +1326,8 @@ function Split({ data, members, me, save }) {
       {data.length>0 && (
         <div className="bg-teal2/5 border border-teal2/20 rounded-2xl p-4 mb-5">
           <div className="flex justify-between text-sm mb-3">
-            <span className="text-slate2">總支出 <b className="text-ink">${settle.total.toLocaleString()}</b></span>
-            <span className="text-slate2">依每筆分攤人計算</span>
+            <span className="text-slate2">總支出 <b className="text-ink">NT${settle.total.toLocaleString()}</b></span>
+            <span className="text-slate2">外幣已換算為 TWD</span>
           </div>
           <div className="space-y-1.5">
             {names.map(n=>{
@@ -1276,7 +1336,7 @@ function Split({ data, members, me, save }) {
                 <div key={n} className="flex justify-between text-sm">
                   <span>{n}</span>
                   <span className={v>0?'text-teal2':v<0?'text-red-500':'text-slate2'}>
-                    {v>0?`應收回 $${v.toLocaleString()}`:v<0?`要付 $${Math.abs(v).toLocaleString()}`:'剛好'}
+                    {v>0?`應收回 NT$${v.toLocaleString()}`:v<0?`要付 NT$${Math.abs(v).toLocaleString()}`:'剛好'}
                   </span>
                 </div>
               );
@@ -1293,7 +1353,12 @@ function Split({ data, members, me, save }) {
                 <p className="text-sm font-medium">{e.title}</p>
                 <p className="text-xs text-slate2">{e.payer} 付款 · {splitLabel(e)}</p>
               </div>
-              <span className="text-sm font-mono">${e.amount.toLocaleString()}</span>
+              <div className="text-right shrink-0">
+                <span className="text-sm font-mono">{fmtOrig(e)}</span>
+                {isForeign(e) && (
+                  <p className="text-[11px] text-slate2 font-mono">{e.noRate ? '未換算' : `≈ NT$${baseAmt(e).toLocaleString()}`}</p>
+                )}
+              </div>
               <button onClick={()=>del(e.id)} className="text-line group-hover:text-red-400"><Icon d={I.trash} cls="w-4 h-4"/></button>
             </div>
           ))}
