@@ -1043,11 +1043,40 @@ function Checklist({ items, save, placeholder }) {
 /* -------------------------------- split -------------------------------- */
 function Split({ data, members, me, save }) {
   const names = Object.values(members);
-  const [form, setForm] = useState({ title:'', amount:'', payer: me.displayName });
+  const [form, setForm] = useState({ title:'', amount:'', payer: me.displayName, participants: names });
   const [aiText, setAiText] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState('');
   const fileRef = useRef(null);
+  const cleanParticipants = (list) => {
+    const picked = (Array.isArray(list) ? list : [])
+      .map(n => String(n || '').trim())
+      .filter(n => names.includes(n));
+    return [...new Set(picked)];
+  };
+  const expenseParticipants = (e) => {
+    const picked = cleanParticipants(e.participants);
+    return picked.length ? picked : names;
+  };
+  const splitLabel = (e) => {
+    const ps = expenseParticipants(e);
+    return ps.length === names.length ? '大家均分' : `${ps.join('、')} 分攤`;
+  };
+  const toggleFormParticipant = (name) => {
+    const current = cleanParticipants(form.participants);
+    const next = current.includes(name) ? current.filter(n=>n!==name) : [...current, name];
+    setForm({...form, participants: next.length ? next : current});
+  };
+  useEffect(() => {
+    setForm(f => {
+      const picked = (Array.isArray(f.participants) ? f.participants : []).filter(n=>names.includes(n));
+      return {
+        ...f,
+        payer: names.includes(f.payer) ? f.payer : (names[0] || me.displayName),
+        participants: picked.length ? picked : names
+      };
+    });
+  }, [names.join()]);
 
   const aiAdd = async () => {
     const t = aiText.trim(); if (!t || aiBusy) return;
@@ -1057,16 +1086,29 @@ function Split({ data, members, me, save }) {
         system: '你是記帳解析助理。從使用者的一句話中抽取消費資訊。' +
           `群組成員：${names.join('、') || '（未知）'}。` +
           `payer 必須是成員名單中的一個名字；若句子沒說是誰付的，用「${me.displayName}」。` +
+          'participants 是「實際要分攤/欠這筆錢的人」陣列，名字必須來自群組成員。\n' +
+          '判斷規則：\n' +
+          `- 「我付/我刷/我先墊」的 payer 是「${me.displayName}」。\n` +
+          '- 「A 付/付款/刷卡/先墊」的 payer 是 A。\n' +
+          '- 「大家/我們/全員/一起吃/一起搭」表示 participants 是所有群組成員。\n' +
+          '- 「我幫 A 付」「A 幫 B 付」「替 B 墊」「幫 B 出」表示 payer 是付錢的人，participants 只放被代付的人，不是大家均分。\n' +
+          '- 「A 幫 B 和 C 付」participants 是 B、C。\n' +
+          '- 如果只說「我付了 3000 午餐」但沒說幫誰，預設 participants 是所有群組成員。\n' +
           'title 是消費項目（10 字內）；amount 是數字金額（不含幣別符號）。',
         user: t,
-        schema: { type: 'OBJECT', required: ['title','amount','payer'],
-          properties: { title: {type:'STRING'}, amount: {type:'NUMBER'}, payer: {type:'STRING'} } }
+        schema: { type: 'OBJECT', required: ['title','amount','payer','participants'],
+          properties: {
+            title: {type:'STRING'}, amount: {type:'NUMBER'}, payer: {type:'STRING'},
+            participants: { type:'ARRAY', items:{ type:'STRING' }, description:'要分攤這筆錢的成員名字' }
+          } }
       }) || {};
       const amt = Number(d.amount);
       if (!d.title || !amt) { setAiMsg('AI 看不懂這筆帳，請描述得更清楚一點'); }
       else {
+        const participants = cleanParticipants(d.participants);
         save([...data, { id: rid(), title: d.title, amount: amt,
           payer: names.includes(d.payer) ? d.payer : me.displayName,
+          participants: participants.length ? participants : names,
           at: new Date().toISOString() }]);
         setAiText('');
       }
@@ -1097,7 +1139,7 @@ function Split({ data, members, me, save }) {
         else {
           save([...data, { id: rid(),
             title: (d.title || '收據消費') + (d.currency && d.currency !== 'TWD' ? ` (${d.currency})` : ''),
-            amount: amt, payer: me.displayName, at: new Date().toISOString() }]);
+            amount: amt, payer: me.displayName, participants: names, at: new Date().toISOString() }]);
         }
       } catch (e) { console.error(e); setAiMsg(fnErr(e)); }
       setAiBusy(false);
@@ -1108,7 +1150,9 @@ function Split({ data, members, me, save }) {
   const add = () => {
     const amt = parseFloat(form.amount);
     if (!form.title.trim() || !amt) return;
-    save([...data, { id:Date.now(), title:form.title.trim(), amount:amt, payer:form.payer, at:new Date().toISOString() }]);
+    const participants = cleanParticipants(form.participants);
+    save([...data, { id:Date.now(), title:form.title.trim(), amount:amt, payer:form.payer,
+      participants: participants.length ? participants : names, at:new Date().toISOString() }]);
     setForm({ ...form, title:'', amount:'' });
   };
   const del = (id)=> save(data.filter(e=>e.id!==id));
@@ -1116,10 +1160,15 @@ function Split({ data, members, me, save }) {
 
   const settle = useMemo(()=>{
     const bal = {}; names.forEach(n=>bal[n]=0);
-    const per = data.reduce((s,e)=>s+e.amount,0) / Math.max(names.length,1);
-    data.forEach(e=>{ if(bal[e.payer]!=null) bal[e.payer]+=e.amount; });
-    names.forEach(n=> bal[n] = +(bal[n]-per).toFixed(0));
-    return { bal, total: data.reduce((s,e)=>s+e.amount,0), per: Math.round(per) };
+    data.forEach(e=>{
+      const amt = Number(e.amount) || 0;
+      const participants = expenseParticipants(e);
+      const share = participants.length ? amt / participants.length : 0;
+      if (bal[e.payer]!=null) bal[e.payer]+=amt;
+      participants.forEach(n=>{ if(bal[n]!=null) bal[n]-=share; });
+    });
+    names.forEach(n=> bal[n] = Math.round(bal[n]));
+    return { bal, total: data.reduce((s,e)=>s+(Number(e.amount)||0),0) };
   }, [data, names.join()]);
 
   return (
@@ -1128,7 +1177,7 @@ function Split({ data, members, me, save }) {
         <p className="text-sm font-medium mb-2">✨ AI 記帳</p>
         <div className="flex gap-2">
           <input value={aiText} onChange={e=>setAiText(e.target.value)}
-            placeholder="例如：我付了 3000 晚餐請大家"
+            placeholder="例如：我付了 3000 晚餐大家分／bob 幫傻比包柏付 1000 午餐"
             onKeyDown={aiEnter.onKeyDown} disabled={aiBusy}
             className={cx('flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm', aiEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
           <button onClick={aiAdd} disabled={aiBusy}
@@ -1153,6 +1202,20 @@ function Split({ data, members, me, save }) {
           className="border border-line rounded-lg px-2.5 py-2 text-sm bg-card">
           {names.map(n=><option key={n}>{n}</option>)}
         </select>
+        <div className="col-span-2">
+          <p className="text-xs text-slate2 mb-1">分攤人</p>
+          <div className="flex flex-wrap gap-2">
+            {names.map(n=>(
+              <label key={n}
+                className={cx('text-xs border rounded-full px-3 py-1.5 cursor-pointer',
+                  cleanParticipants(form.participants).includes(n) ? 'border-teal2 bg-teal2/5 text-teal2' : 'border-line text-slate2')}>
+                <input type="checkbox" checked={cleanParticipants(form.participants).includes(n)}
+                  onChange={()=>toggleFormParticipant(n)} className="sr-only" />
+                {n}
+              </label>
+            ))}
+          </div>
+        </div>
         <button onClick={add} className="col-span-2 bg-ink text-paper rounded-lg py-2 text-sm flex items-center justify-center gap-1">
           <Icon d={I.plus} cls="w-4 h-4"/>記一筆
         </button>
@@ -1162,7 +1225,7 @@ function Split({ data, members, me, save }) {
         <div className="bg-teal2/5 border border-teal2/20 rounded-2xl p-4 mb-5">
           <div className="flex justify-between text-sm mb-3">
             <span className="text-slate2">總支出 <b className="text-ink">${settle.total.toLocaleString()}</b></span>
-            <span className="text-slate2">每人份 <b className="text-ink">${settle.per.toLocaleString()}</b></span>
+            <span className="text-slate2">依每筆分攤人計算</span>
           </div>
           <div className="space-y-1.5">
             {names.map(n=>{
@@ -1186,7 +1249,7 @@ function Split({ data, members, me, save }) {
             <div key={e.id} className="bg-card border border-line rounded-xl px-4 py-3 flex items-center gap-3 group">
               <div className="flex-1">
                 <p className="text-sm font-medium">{e.title}</p>
-                <p className="text-xs text-slate2">{e.payer} 付款</p>
+                <p className="text-xs text-slate2">{e.payer} 付款 · {splitLabel(e)}</p>
               </div>
               <span className="text-sm font-mono">${e.amount.toLocaleString()}</span>
               <button onClick={()=>del(e.id)} className="text-line group-hover:text-red-400"><Icon d={I.trash} cls="w-4 h-4"/></button>
