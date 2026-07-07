@@ -578,10 +578,13 @@ function Itinerary({ data, save }) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiErr, setAiErr] = useState('');
+  const [aiReplace, setAiReplace] = useState(false);
   const [detail, setDetail] = useState(null);
 
   const aiGen = async () => {
     const p = aiPrompt.trim(); if (!p || aiBusy) return;
+    if (aiReplace && data.length > 0
+        && !confirm(`確定要用 AI 產生的新行程「取代」目前 ${data.length} 筆行程嗎？此動作無法復原。`)) return;
     setAiBusy(true); setAiErr('');
     try {
       const out = await askGemini({
@@ -603,7 +606,10 @@ function Itinerary({ data, save }) {
         title: (it.title || '').trim(), note: it.note || '', map: (it.place || '').trim()
       })).filter(it => it.title);
       if (!items.length) { setAiErr('AI 沒有產生行程，換個說法再試一次'); }
-      else { save([...data, ...items].sort(dayThenTime)); setAiPrompt(''); }
+      else {
+        save((aiReplace ? items : [...data, ...items]).sort(dayThenTime));
+        setAiPrompt('');
+      }
     } catch (e) { console.error(e); setAiErr(fnErr(e)); }
     setAiBusy(false);
   };
@@ -635,6 +641,11 @@ function Itinerary({ data, save }) {
             {aiBusy ? '生成中…' : '生成'}
           </button>
         </div>
+        <label className="flex items-center gap-1.5 mt-2 text-xs text-slate2 cursor-pointer select-none">
+          <input type="checkbox" checked={aiReplace} onChange={e=>setAiReplace(e.target.checked)}
+            className="rounded border-line" />
+          取代目前所有行程（不勾選則加在後面）
+        </label>
         {aiEnter.armed && <p className="text-xs text-amber2 mt-2">再按一次 Enter 確認送出</p>}
         {aiErr && <p className="text-xs text-red-600 mt-2">{aiErr}</p>}
       </div>
