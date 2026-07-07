@@ -617,20 +617,39 @@ const inferTripStartDate = (text) => {
   if (iso && iso < todayISO()) iso = isoFromParts(y + 1, m[1], m[2]);
   return iso;
 };
-// dayOffset：接續新增時，把 AI 的「Day 1/2」往後推 offset 天/天數（現有行程沒有明確日期時使用）
-const normalizeAiDay = (day, startIso, dayOffset = 0) => {
+const rawDayNumber = (day) => {
+  const m = String(day || '').trim().match(/day\s*(\d+)/i) || String(day || '').trim().match(/第\s*(\d+)\s*天/);
+  return m ? Number(m[1]) : 0;
+};
+const draftStartDate = (prompt, data) => {
+  const explicit = inferTripStartDate(prompt);
+  if (explicit) return explicit;
+  const isoDays = [...new Set(data.map(i=>i.day))].filter(isIsoDate).sort();
+  const requestedDay = rawDayNumber(prompt);
+  if (requestedDay && isoDays.length) return isoDays[0];
+  if (isoDays.length) return addDays(isoDays[isoDays.length - 1], 1);
+  if (requestedDay) return todayISO();
+  const maxRawDay = Math.max(0, ...data.map(i=>rawDayNumber(i.day)));
+  return addDays(todayISO(), maxRawDay);
+};
+const normalizeAiDay = (day, startIso) => {
   const raw = String(day || '').trim();
   if (isIsoDate(raw)) return raw;
   let m = raw.match(/day\s*(\d+)/i) || raw.match(/第\s*(\d+)\s*天/);
   if (m) {
     const n = Number(m[1]);
-    return startIso ? addDays(startIso, n - 1) : `Day ${n + dayOffset}`;
+    return addDays(startIso, n - 1);
   }
   m = raw.match(/(?:^|[^\d])(\d{1,2})[\/\-.月]\s*(\d{1,2})/);
-  if (m && startIso) return isoFromParts(startIso.slice(0,4), m[1], m[2]) || raw;
-  if (!startIso) return raw || `Day ${1 + dayOffset}`;
-  return raw || startIso;
+  if (m) return isoFromParts(startIso.slice(0,4), m[1], m[2]) || startIso;
+  return startIso;
 };
+const normalizeLegacyDays = (items, anchorIso) =>
+  items.map(i => {
+    if (isIsoDate(i.day)) return i;
+    const n = rawDayNumber(i.day);
+    return n ? { ...i, day: addDays(anchorIso, n - 1) } : i;
+  });
 const fmtDayDate = (iso) => {
   const d = new Date(iso+'T00:00:00');
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('zh-TW', { month:'numeric', day:'numeric', weekday:'short' });
@@ -641,38 +660,35 @@ function Itinerary({ data, save }) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiErr, setAiErr] = useState('');
+  const [aiDraft, setAiDraft] = useState(null);
   const [detail, setDetail] = useState(null);
 
   const aiGen = async () => {
     const p = aiPrompt.trim(); if (!p || aiBusy) return;
     setAiBusy(true); setAiErr('');
     try {
-      const hasExisting = data.length > 0;
-      // 現有行程的第一個西元日期，當作把「Day N」對映回真實日期的錨點（使用者有明講日期則以其為準）
-      const existIso = [...new Set(data.map(i=>i.day))].filter(isIsoDate).sort();
-      const startIso = inferTripStartDate(p) || existIso[0] || '';
-      // 把「目前完整行程」餵給 AI，讓它依語意決定怎麼改
+      const startIso = draftStartDate(p, data);
+      // 把目前完整行程餵給 AI，讓它避開重複內容並產生可挑選的草稿
       const currentList = data.map(i => ({
         day: i.day, time: i.time||'', title: i.title||'', note: i.note||'', place: i.map||''
       }));
       const out = await askGemini({
-        system: '你是旅遊行程規劃助理，負責「編輯使用者現有的行程」。' +
-          '你會收到「目前行程」(JSON 陣列) 與「使用者指令」。請理解使用者的語意意圖並套用，' +
-          '然後回傳「套用後的完整行程」(要包含沒有變動的項目，除非指令要求刪除)。\n' +
+        system: '你是旅遊行程規劃助理，負責產生「可加入正式行程的草稿」。' +
+          '你會收到「目前行程」(JSON 陣列)、「草稿起始日期」與「使用者指令」。請理解使用者的語意意圖，' +
+          '只回傳這次建議新增或替換的草稿項目，不要回傳目前已存在且沒有變動的項目。\n' +
           '意圖判斷（依使用者用字彈性判斷，不限這些例子）：\n' +
-          '- 「接著/後面/繼續/再加幾天…」→ 保留現有行程，新的天數/日期接在最後一天之後，不要從第一天重來，也不要重複現有內容。\n' +
-          '- 「把第N天的X改成Y／在某天加一個…」→ 只改動對應項目，其餘原封不動。\n' +
-          '- 「刪掉/拿掉/不要…」→ 移除對應項目，其餘保留。\n' +
-          '- 「重新規劃/整個換成/全部重排…」→ 才可整份重做。\n' +
-          '- 目前行程是空的 → 直接依指令產生新行程。\n' +
-          '日期規則：現有行程若用西元日期(YYYY-MM-DD)，新增/延續的天要沿用同一序列往後遞增；' +
-          '若現有用「Day 1/2」，就延續「Day 3/4」；使用者有指定明確日期則以其為準。' +
+          '- 「接著/後面/繼續/再加幾天…」→ 新草稿從草稿起始日期開始，不要重複目前已有內容。\n' +
+          '- 「在某天加一個…」→ 只回傳要新增的項目。\n' +
+          '- 「把第N天的X改成Y」→ 回傳建議替換的新項目，summary 說明使用者需自行刪除或編輯舊項目。\n' +
+          '- 「刪掉/拿掉/不要…」→ 不要回傳舊項目，summary 說明可手動刪除。\n' +
+          '- 目前行程是空的 → 依指令產生新草稿。\n' +
+          '日期規則：若使用者有指定明確日期，day 用該西元日期 YYYY-MM-DD；若沒有指定日期，' +
+          '草稿第一天就是草稿起始日期，第二天是隔天，以此類推。你可以回傳 YYYY-MM-DD，也可以回傳 Day 1/Day 2，前端會轉成真實日期。' +
           'time 用 24 小時制 HH:MM；title 為地點或活動名稱(15 字內)；' +
           'note 放交通方式、預估花費或小提醒(可為空字串)；' +
           'place 是這個地點在 Google 地圖查得到的名稱，附上城市/地區避免同名(例如「北野異人館, 神戶」)，' +
           '填地名文字、不要網址或座標，無明確地點留空字串。' +
-          '沒有變動的項目，其 place 與 note 請原封不動保留。\n' +
-          '【重要】套用變更後，請「重新檢視整份行程的合理性」，不要只是把新項目塞進去：\n' +
+          '【重要】產生草稿後，請檢視草稿本身與目前行程的合理性：\n' +
           '(1) 同一天不要有時間衝突或重疊，不要兩個項目排在同一個時間；\n' +
           '(2) 相鄰行程之間要留足夠的交通與移動時間；跨城市移動(例如大阪→神戶)要安排交通並抓合理耗時，' +
           '也要注意與前一天/後一天銜接是否順(例如前一天最後在某城市，新的一天要從那裡出發或先移動)；\n' +
@@ -681,7 +697,7 @@ function Itinerary({ data, save }) {
           '為了解決上述衝突，你可以微調受影響項目的時間或順序(即使不是使用者直接指定的項目)，' +
           '並在 summary 一併說明你順手調整了什麼。\n' +
           'summary 用一句話說明你做了什麼變更(含為了合理化而做的時間/順序調整)。',
-        user: `目前行程(JSON)：\n${JSON.stringify(currentList)}\n\n使用者指令：\n${p}`,
+        user: `目前行程(JSON)：\n${JSON.stringify(currentList)}\n\n草稿起始日期：${startIso}\n\n使用者指令：\n${p}`,
         schema: { type: 'OBJECT', required: ['items'], properties: {
           summary: { type:'STRING', description:'一句話說明這次做了什麼變更' },
           items: {
@@ -698,29 +714,41 @@ function Itinerary({ data, save }) {
         title: (it.title || '').trim(), note: it.note || '', map: (it.place || '').trim()
       })).filter(it => it.title);
       if (!items.length) { setAiErr('AI 沒有產生行程，換個說法再試一次'); }
-      else if (hasExisting && !confirm(
-        `AI 建議把行程更新為 ${items.length} 筆` +
-        (out?.summary ? `：\n${out.summary}` : '（原本 ' + data.length + ' 筆）') +
-        `\n\n套用後會以這份新清單為準（可再用 AI 或手動調整）。確定套用嗎？`)) {
-        // 使用者取消，不動資料
-      } else {
-        save(items.sort(dayThenTime));
-        setAiPrompt('');
-      }
+      else setAiDraft({ summary: out?.summary || '', items: items.sort(dayThenTime), selected: Object.fromEntries(items.map(i=>[i.id, true])) });
     } catch (e) { console.error(e); setAiErr(fnErr(e)); }
     setAiBusy(false);
+  };
+
+  const draftItems = aiDraft?.items || [];
+  const selectedDraftCount = draftItems.filter(i=>aiDraft?.selected?.[i.id]).length;
+  const toggleDraft = (id) => setAiDraft(d => d && ({ ...d, selected: { ...d.selected, [id]: !d.selected[id] } }));
+  const selectAllDraft = (checked) => setAiDraft(d => d && ({ ...d, selected: Object.fromEntries(d.items.map(i=>[i.id, checked])) }));
+  const addDraft = () => {
+    const chosen = draftItems.filter(i=>aiDraft?.selected?.[i.id]);
+    if (!chosen.length) { setAiErr('請先勾選要加入的草稿項目'); return; }
+    const existingIso = [...new Set(data.map(i=>i.day))].filter(isIsoDate).sort();
+    const anchorIso = existingIso[0] || todayISO();
+    save(normalizeLegacyDays([...data, ...chosen.map(i=>({ ...i, id: rid() }))], anchorIso).sort(dayThenTime));
+    setAiDraft(null);
+    setAiPrompt('');
+    setAiErr('');
   };
 
   const add = () => {
     if (!form.title.trim()) return;
     const item = { id: Date.now(), ...form, title: form.title.trim(), map: form.map.trim() };
-    save([...data, item].sort(dayThenTime));
+    const existingIso = [...new Set(data.map(i=>i.day))].filter(isIsoDate).sort();
+    const anchorIso = existingIso[0] || form.day || todayISO();
+    save(normalizeLegacyDays([...data, item], anchorIso).sort(dayThenTime));
     setForm({ ...form, time:'', title:'', note:'', map:'' });
   };
   const del = (id) => save(data.filter(i=>i.id!==id));
   const days = [...new Set(data.map(i=>i.day))];
   const isoDays = days.filter(isIsoDate);
   const dayLabel = (d) => isIsoDate(d) ? `Day ${isoDays.indexOf(d)+1}` : d;
+  const draftDays = [...new Set(draftItems.map(i=>i.day))];
+  const draftIsoDays = draftDays.filter(isIsoDate);
+  const draftDayLabel = (d) => isIsoDate(d) ? `Day ${draftIsoDays.indexOf(d)+1} · ${fmtDayDate(d)}` : d;
   const aiEnter = useConfirmEnter(aiGen);
   const addEnter = useConfirmEnter(add);
 
@@ -730,7 +758,7 @@ function Itinerary({ data, save }) {
         <p className="text-sm font-medium mb-2">✨ AI 排行程</p>
         <div className="flex gap-2">
           <input value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)}
-            placeholder={data.length ? '例如：後面接著去神戶二日遊／把第2天午餐改成拉麵／刪掉神戶那天' : '例如：京都三天，喜歡神社和美食，步調悠閒'}
+            placeholder={data.length ? '例如：後面接著去神戶二日遊／在第2天加一間拉麵／幫我補東京半日' : '例如：京都三天，喜歡神社和美食，步調悠閒'}
             onKeyDown={aiEnter.onKeyDown} disabled={aiBusy}
             className={cx('flex-1 border rounded-xl px-3 py-2 text-sm', aiEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
           <button onClick={aiGen} disabled={aiBusy}
@@ -739,11 +767,69 @@ function Itinerary({ data, save }) {
           </button>
         </div>
         <p className="text-xs text-slate2/70 mt-2">
-          {data.length ? 'AI 會看你目前的行程，依你的說法接續、修改或刪除，套用前會先讓你確認。' : '描述你的旅程，AI 幫你排好整份行程。'}
+          {data.length ? 'AI 會先產生草稿，日期自動接在現有行程後面；勾選後再加入正式行程。' : '描述你的旅程，AI 先產生草稿；勾選後再加入正式行程。'}
         </p>
         {aiEnter.armed && <p className="text-xs text-amber2 mt-2">再按一次 Enter 確認送出</p>}
         {aiErr && <p className="text-xs text-red-600 mt-2">{aiErr}</p>}
       </div>
+
+      {aiDraft && (
+        <div className="bg-card border border-amber2/40 rounded-2xl p-4 mb-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <p className="text-sm font-medium">AI 草稿</p>
+              <p className="text-xs text-slate2/70 mt-1">
+                {aiDraft.summary || '勾選想加入的項目，正式行程還不會變動。'}
+              </p>
+            </div>
+            <button onClick={()=>setAiDraft(null)} className="text-slate2 hover:text-ink shrink-0">
+              <Icon d={I.x} cls="w-4 h-4"/>
+            </button>
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-xs text-slate2 mb-3 cursor-pointer">
+            <input type="checkbox" checked={selectedDraftCount === draftItems.length}
+              onChange={e=>selectAllDraft(e.target.checked)}
+              className="w-4 h-4 accent-teal2" />
+            全選 {selectedDraftCount}/{draftItems.length}
+          </label>
+
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+            {draftDays.map(day=>(
+              <div key={day}>
+                <p className="text-xs font-medium text-slate2 mb-1">{draftDayLabel(day)}</p>
+                <div className="space-y-2">
+                  {draftItems.filter(i=>i.day===day).map(i=>(
+                    <label key={i.id}
+                      className="flex items-start gap-3 border border-line rounded-xl px-3 py-2 cursor-pointer hover:border-amber2">
+                      <input type="checkbox" checked={!!aiDraft.selected[i.id]}
+                        onChange={()=>toggleDraft(i.id)}
+                        className="w-4 h-4 mt-0.5 accent-teal2 shrink-0" />
+                      <span className="font-mono text-xs text-teal2 pt-0.5 w-11 shrink-0">{i.time||'—'}</span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium">{i.title}</span>
+                        {i.note && <span className="block text-xs text-slate2 mt-0.5">{i.note}</span>}
+                        {i.map && <span className="block text-xs text-teal2 mt-0.5">📍 {i.map}</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button onClick={()=>setAiDraft(null)}
+              className="px-3 py-2 text-sm rounded-lg border border-line text-slate2 hover:text-ink">
+              取消
+            </button>
+            <button onClick={addDraft} disabled={!selectedDraftCount}
+              className="flex-1 bg-ink text-paper rounded-lg py-2 text-sm font-medium disabled:opacity-50">
+              加入選取的
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-card border border-line rounded-2xl p-4 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <input type="date" value={form.day} onChange={e=>setForm({...form,day:e.target.value})}
