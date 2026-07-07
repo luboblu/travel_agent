@@ -543,7 +543,7 @@ function GroupRoom({ user, groupId, onBack }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-line bg-card/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center gap-3">
           <button onClick={onBack} className="text-slate2 hover:text-ink"><Icon d={I.back} cls="w-5 h-5"/></button>
           <div className="flex-1 min-w-0">
             <h1 className="font-display text-xl truncate">{group.name}</h1>
@@ -551,7 +551,7 @@ function GroupRoom({ user, groupId, onBack }) {
           </div>
           <div className="ml-auto shrink-0"><InviteChip code={group.code} /></div>
         </div>
-        <div className="max-w-3xl mx-auto px-2 flex overflow-x-auto">
+        <div className="max-w-5xl mx-auto px-2 flex overflow-x-auto">
           {TABS.map(([k,l,d])=>(
             <button key={k} onClick={()=>setTab(k)}
               className={cx('tabbtn shrink-0 px-3.5 py-2.5 text-sm flex items-center gap-1.5 border-b-2 transition',
@@ -562,7 +562,7 @@ function GroupRoom({ user, groupId, onBack }) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-5">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5">
         {tab==='itinerary' && <Itinerary data={data.itinerary||[]} save={v=>patchData({itinerary:v})} />}
         {tab==='todos'     && <Checklist kind="todos"   items={data.todos||[]}   save={v=>patchData({todos:v})}   placeholder="要辦的事，例如：訂新幹線" />}
         {tab==='packing'   && <Checklist kind="packing" items={data.packing||[]} save={v=>patchData({packing:v})} placeholder="要帶的東西，例如：轉接頭" />}
