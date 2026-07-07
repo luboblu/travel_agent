@@ -142,13 +142,11 @@ async function askGemini({ system, user, image, schema }) {
   if (!res.ok) { const err = new Error('Gemini HTTP ' + res.status); err.status = res.status; throw err; }
   return await res.json();
 }
+// 只給使用者看得懂、且不洩漏內部細節的訊息；真正的錯誤用 console.error 留給開發者/後端 log
 const fnErr = (e) =>
-  e?.status === 429 ? 'AI 免費額度暫時用完，請過幾分鐘再試' :
+  e?.status === 429 ? 'AI 使用量暫時偏高，請過幾分鐘再試' :
   e?.status === 401 ? '請先登入再使用 AI 功能' :
-  (e?.status === 400 || e?.status === 403) ? 'AI 服務設定有誤，請稍後再試' :
-  e?.status === 404 ? 'AI 服務端點不存在（後端尚未部署？）' :
-  (e instanceof SyntaxError) ? 'AI 回傳格式錯誤，請再試一次' :
-  'AI 服務暫時無法使用，請稍後再試';
+  'AI 服務暫時無法使用，請稍後再試；若持續發生，請聯絡管理員';
 
 /* --------------------------------- icons -------------------------------- */
 const I = {
