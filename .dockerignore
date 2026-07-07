@@ -1,0 +1,11 @@
+.git
+.firebase
+.firebaserc
+firebase.json
+firestore.rules
+README.md
+package.json
+package-lock.json
+node_modules
+**/__pycache__
+*.pyc
