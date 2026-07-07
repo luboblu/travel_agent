@@ -14,6 +14,7 @@
       "firestore.rules"
     ],
     "rewrites": [
+      { "source": "/api/gemini", "run": { "serviceId": "voyage", "region": "asia-east1" } },
       { "source": "**", "destination": "/index.html" }
     ],
     "headers": [
