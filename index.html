@@ -547,7 +547,7 @@ function GroupRoom({ user, groupId, onBack }) {
           <button onClick={onBack} className="text-slate2 hover:text-ink"><Icon d={I.back} cls="w-5 h-5"/></button>
           <div className="flex-1 min-w-0">
             <h1 className="font-display text-xl truncate">{group.name}</h1>
-            <p className="text-xs text-slate2 truncate" title={Object.values(members).join('、')}>{Object.values(members).join('、')}</p>
+            <p className="text-xs text-slate2 truncate max-w-md" title={Object.values(members).join('、')}>{Object.values(members).join('、')}</p>
           </div>
           <div className="ml-auto shrink-0"><InviteChip code={group.code} /></div>
         </div>
