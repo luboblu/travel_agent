@@ -619,13 +619,18 @@ const inferTripStartDate = (text) => {
   if (iso && iso < todayISO()) iso = isoFromParts(y + 1, m[1], m[2]);
   return iso;
 };
-const normalizeAiDay = (day, startIso) => {
+// dayOffset：接續新增時，把 AI 的「Day 1/2」往後推 offset 天/天數（現有行程沒有明確日期時使用）
+const normalizeAiDay = (day, startIso, dayOffset = 0) => {
   const raw = String(day || '').trim();
-  if (isIsoDate(raw) || !startIso) return raw || 'Day 1';
+  if (isIsoDate(raw)) return raw;
   let m = raw.match(/day\s*(\d+)/i) || raw.match(/第\s*(\d+)\s*天/);
-  if (m) return addDays(startIso, Number(m[1])-1);
+  if (m) {
+    const n = Number(m[1]);
+    return startIso ? addDays(startIso, n - 1) : `Day ${n + dayOffset}`;
+  }
   m = raw.match(/(?:^|[^\d])(\d{1,2})[\/\-.月]\s*(\d{1,2})/);
-  if (m) return isoFromParts(startIso.slice(0,4), m[1], m[2]) || raw;
+  if (m && startIso) return isoFromParts(startIso.slice(0,4), m[1], m[2]) || raw;
+  if (!startIso) return raw || `Day ${1 + dayOffset}`;
   return raw || startIso;
 };
 const fmtDayDate = (iso) => {
@@ -638,44 +643,63 @@ function Itinerary({ data, save }) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiErr, setAiErr] = useState('');
-  const [aiReplace, setAiReplace] = useState(false);
   const [detail, setDetail] = useState(null);
 
   const aiGen = async () => {
     const p = aiPrompt.trim(); if (!p || aiBusy) return;
-    if (aiReplace && data.length > 0
-        && !confirm(`確定要用 AI 產生的新行程「取代」目前 ${data.length} 筆行程嗎？此動作無法復原。`)) return;
     setAiBusy(true); setAiErr('');
     try {
-      const startIso = inferTripStartDate(p);
+      const hasExisting = data.length > 0;
+      // 現有行程的第一個西元日期，當作把「Day N」對映回真實日期的錨點（使用者有明講日期則以其為準）
+      const existIso = [...new Set(data.map(i=>i.day))].filter(isIsoDate).sort();
+      const startIso = inferTripStartDate(p) || existIso[0] || '';
+      // 把「目前完整行程」餵給 AI，讓它依語意決定怎麼改
+      const currentList = data.map(i => ({
+        day: i.day, time: i.time||'', title: i.title||'', note: i.note||'', place: i.map||''
+      }));
       const out = await askGemini({
-        system: '你是旅遊行程規劃助理。根據使用者描述產生具體、可執行的行程。' +
-          '若使用者的描述中提到明確的西元日期（例如「2026/12/11」「12月11日出發」「2026-12-15」），' +
-          'day 請輸出西元日期，格式為 YYYY-MM-DD（月、日需補零，例如 2026-01-05），' +
-          '第一天用使用者提到的日期，之後每天依序遞增一天；' +
-          '若使用者完全沒有提到日期，day 才用「Day 1」「Day 2」…這種格式。' +
-          'time 用 24 小時制 HH:MM；' +
-          'title 是地點或活動名稱（15 字內）；note 放交通方式、預估花費或小提醒（可為空字串）；' +
-          'place 是這個地點在 Google 地圖上可查到的名稱，請附上城市/地區避免搜到同名地點' +
-          '（例如「伏見稻荷大社, 京都」），這裡填「地名文字」，不要生成網址或座標，若無明確地點可留空字串。' +
-          '行程要順路、節奏合理，並包含用餐安排。',
-        user: p,
-        schema: { type: 'OBJECT', required: ['items'], properties: { items: {
-          type: 'ARRAY', items: { type: 'OBJECT',
-            required: ['day', 'time', 'title', 'note', 'place'],
-            properties: {
-              day: { type:'STRING', description: '若使用者提到明確日期則為 YYYY-MM-DD（補零），否則為「Day 1」「Day 2」等格式' },
-              time: {type:'STRING'}, title: {type:'STRING'}, note: {type:'STRING'}, place: {type:'STRING'}
-            }
-          } } } }
+        system: '你是旅遊行程規劃助理，負責「編輯使用者現有的行程」。' +
+          '你會收到「目前行程」(JSON 陣列) 與「使用者指令」。請理解使用者的語意意圖並套用，' +
+          '然後回傳「套用後的完整行程」(要包含沒有變動的項目，除非指令要求刪除)。\n' +
+          '意圖判斷（依使用者用字彈性判斷，不限這些例子）：\n' +
+          '- 「接著/後面/繼續/再加幾天…」→ 保留現有行程，新的天數/日期接在最後一天之後，不要從第一天重來，也不要重複現有內容。\n' +
+          '- 「把第N天的X改成Y／在某天加一個…」→ 只改動對應項目，其餘原封不動。\n' +
+          '- 「刪掉/拿掉/不要…」→ 移除對應項目，其餘保留。\n' +
+          '- 「重新規劃/整個換成/全部重排…」→ 才可整份重做。\n' +
+          '- 目前行程是空的 → 直接依指令產生新行程。\n' +
+          '日期規則：現有行程若用西元日期(YYYY-MM-DD)，新增/延續的天要沿用同一序列往後遞增；' +
+          '若現有用「Day 1/2」，就延續「Day 3/4」；使用者有指定明確日期則以其為準。' +
+          'time 用 24 小時制 HH:MM；title 為地點或活動名稱(15 字內)；' +
+          'note 放交通方式、預估花費或小提醒(可為空字串)；' +
+          'place 是這個地點在 Google 地圖查得到的名稱，附上城市/地區避免同名(例如「北野異人館, 神戶」)，' +
+          '填地名文字、不要網址或座標，無明確地點留空字串。' +
+          '沒有變動的項目，其 place 與 note 請原封不動保留。' +
+          'summary 用一句話說明你做了什麼變更。' +
+          '行程要順路、節奏合理並包含用餐安排。',
+        user: `目前行程(JSON)：\n${JSON.stringify(currentList)}\n\n使用者指令：\n${p}`,
+        schema: { type: 'OBJECT', required: ['items'], properties: {
+          summary: { type:'STRING', description:'一句話說明這次做了什麼變更' },
+          items: {
+            type: 'ARRAY', items: { type: 'OBJECT',
+              required: ['day', 'time', 'title', 'note', 'place'],
+              properties: {
+                day: { type:'STRING', description: '西元日期 YYYY-MM-DD（補零），或「Day 1」「Day 2」等格式' },
+                time: {type:'STRING'}, title: {type:'STRING'}, note: {type:'STRING'}, place: {type:'STRING'}
+              }
+            } } } }
       });
       const items = (out?.items || []).map(it => ({
         id: rid(), day: normalizeAiDay(it.day, startIso), time: it.time || '',
         title: (it.title || '').trim(), note: it.note || '', map: (it.place || '').trim()
       })).filter(it => it.title);
       if (!items.length) { setAiErr('AI 沒有產生行程，換個說法再試一次'); }
-      else {
-        save((aiReplace ? items : [...data, ...items]).sort(dayThenTime));
+      else if (hasExisting && !confirm(
+        `AI 建議把行程更新為 ${items.length} 筆` +
+        (out?.summary ? `：\n${out.summary}` : '（原本 ' + data.length + ' 筆）') +
+        `\n\n套用後會以這份新清單為準（可再用 AI 或手動調整）。確定套用嗎？`)) {
+        // 使用者取消，不動資料
+      } else {
+        save(items.sort(dayThenTime));
         setAiPrompt('');
       }
     } catch (e) { console.error(e); setAiErr(fnErr(e)); }
@@ -701,7 +725,7 @@ function Itinerary({ data, save }) {
         <p className="text-sm font-medium mb-2">✨ AI 排行程</p>
         <div className="flex gap-2">
           <input value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)}
-            placeholder="例如：京都三天，喜歡神社和美食，步調悠閒"
+            placeholder={data.length ? '例如：後面接著去神戶二日遊／把第2天午餐改成拉麵／刪掉神戶那天' : '例如：京都三天，喜歡神社和美食，步調悠閒'}
             onKeyDown={aiEnter.onKeyDown} disabled={aiBusy}
             className={cx('flex-1 border rounded-xl px-3 py-2 text-sm', aiEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
           <button onClick={aiGen} disabled={aiBusy}
@@ -709,11 +733,9 @@ function Itinerary({ data, save }) {
             {aiBusy ? '生成中…' : '生成'}
           </button>
         </div>
-        <label className="flex items-center gap-1.5 mt-2 text-xs text-slate2 cursor-pointer select-none">
-          <input type="checkbox" checked={aiReplace} onChange={e=>setAiReplace(e.target.checked)}
-            className="rounded border-line" />
-          取代目前所有行程（不勾選則加在後面）
-        </label>
+        <p className="text-xs text-slate2/70 mt-2">
+          {data.length ? 'AI 會看你目前的行程，依你的說法接續、修改或刪除，套用前會先讓你確認。' : '描述你的旅程，AI 幫你排好整份行程。'}
+        </p>
         {aiEnter.armed && <p className="text-xs text-amber2 mt-2">再按一次 Enter 確認送出</p>}
         {aiErr && <p className="text-xs text-red-600 mt-2">{aiErr}</p>}
       </div>
