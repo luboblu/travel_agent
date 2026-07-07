@@ -568,6 +568,40 @@ function InviteChip({ code }) {
 /* ------------------------------- itinerary ------------------------------ */
 const todayISO = () => new Date().toISOString().slice(0,10);
 const isIsoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s||'');
+const pad2 = (n) => String(n).padStart(2, '0');
+const isoFromParts = (y, m, d) => {
+  const dt = new Date(Number(y), Number(m)-1, Number(d));
+  return dt.getFullYear() === Number(y) && dt.getMonth() === Number(m)-1 && dt.getDate() === Number(d)
+    ? `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`
+    : '';
+};
+const addDays = (iso, days) => {
+  const dt = new Date(iso+'T00:00:00');
+  dt.setDate(dt.getDate() + days);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`;
+};
+const inferTripStartDate = (text) => {
+  const s = text || '';
+  let m = s.match(/(20\d{2})[\/\-.年]\s*(\d{1,2})[\/\-.月]\s*(\d{1,2})/);
+  if (m) return isoFromParts(m[1], m[2], m[3]);
+  m = s.match(/(?:^|[^\d])(\d{1,2})\s*月\s*(\d{1,2})\s*日?/);
+  if (!m) m = s.match(/(?:^|[^\d])(\d{1,2})[\/\-.](\d{1,2})(?:$|[^\d])/);
+  if (!m) return '';
+  const now = new Date();
+  let y = now.getFullYear();
+  let iso = isoFromParts(y, m[1], m[2]);
+  if (iso && iso < todayISO()) iso = isoFromParts(y + 1, m[1], m[2]);
+  return iso;
+};
+const normalizeAiDay = (day, startIso) => {
+  const raw = String(day || '').trim();
+  if (isIsoDate(raw) || !startIso) return raw || 'Day 1';
+  let m = raw.match(/day\s*(\d+)/i) || raw.match(/第\s*(\d+)\s*天/);
+  if (m) return addDays(startIso, Number(m[1])-1);
+  m = raw.match(/(?:^|[^\d])(\d{1,2})[\/\-.月]\s*(\d{1,2})/);
+  if (m) return isoFromParts(startIso.slice(0,4), m[1], m[2]) || raw;
+  return raw || startIso;
+};
 const fmtDayDate = (iso) => {
   const d = new Date(iso+'T00:00:00');
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('zh-TW', { month:'numeric', day:'numeric', weekday:'short' });
@@ -587,9 +621,14 @@ function Itinerary({ data, save }) {
         && !confirm(`確定要用 AI 產生的新行程「取代」目前 ${data.length} 筆行程嗎？此動作無法復原。`)) return;
     setAiBusy(true); setAiErr('');
     try {
+      const startIso = inferTripStartDate(p);
       const out = await askGemini({
         system: '你是旅遊行程規劃助理。根據使用者描述產生具體、可執行的行程。' +
-          'day 一律用「Day 1」「Day 2」…格式；time 用 24 小時制 HH:MM；' +
+          '若使用者的描述中提到明確的西元日期（例如「2026/12/11」「12月11日出發」「2026-12-15」），' +
+          'day 請輸出西元日期，格式為 YYYY-MM-DD（月、日需補零，例如 2026-01-05），' +
+          '第一天用使用者提到的日期，之後每天依序遞增一天；' +
+          '若使用者完全沒有提到日期，day 才用「Day 1」「Day 2」…這種格式。' +
+          'time 用 24 小時制 HH:MM；' +
           'title 是地點或活動名稱（15 字內）；note 放交通方式、預估花費或小提醒（可為空字串）；' +
           'place 是這個地點在 Google 地圖上可查到的名稱，請附上城市/地區避免搜到同名地點' +
           '（例如「伏見稻荷大社, 京都」），這裡填「地名文字」，不要生成網址或座標，若無明確地點可留空字串。' +
@@ -598,11 +637,14 @@ function Itinerary({ data, save }) {
         schema: { type: 'OBJECT', required: ['items'], properties: { items: {
           type: 'ARRAY', items: { type: 'OBJECT',
             required: ['day', 'time', 'title', 'note', 'place'],
-            properties: { day: {type:'STRING'}, time: {type:'STRING'}, title: {type:'STRING'}, note: {type:'STRING'}, place: {type:'STRING'} }
+            properties: {
+              day: { type:'STRING', description: '若使用者提到明確日期則為 YYYY-MM-DD（補零），否則為「Day 1」「Day 2」等格式' },
+              time: {type:'STRING'}, title: {type:'STRING'}, note: {type:'STRING'}, place: {type:'STRING'}
+            }
           } } } }
       });
       const items = (out?.items || []).map(it => ({
-        id: rid(), day: it.day || 'Day 1', time: it.time || '',
+        id: rid(), day: normalizeAiDay(it.day, startIso), time: it.time || '',
         title: (it.title || '').trim(), note: it.note || '', map: (it.place || '').trim()
       })).filter(it => it.title);
       if (!items.length) { setAiErr('AI 沒有產生行程，換個說法再試一次'); }
@@ -993,11 +1035,17 @@ function Chat({ groupId, me }) {
   useEffect(()=>{ endRef.current?.scrollIntoView({behavior:'smooth'}); }, [msgs]);
 
   const send = async () => {
-    const t = text.trim(); if(!t) return;
+    const t = text.trim();
     setText('');
+    if(!t) return;
     await db.collection('groups').doc(groupId).collection('messages').add({
       uid: me.uid, name: me.displayName, text: t, createdAt: FV.serverTimestamp()
     });
+  };
+  const onTextKeyDown = (e) => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    send();
   };
 
   return (
@@ -1021,7 +1069,7 @@ function Chat({ groupId, me }) {
       </div>
       <div className="flex gap-2 pt-2 border-t border-line">
         <input value={text} onChange={e=>setText(e.target.value)} placeholder="輸入訊息…"
-          onKeyDown={e=>e.key==='Enter'&&send()}
+          onKeyDown={onTextKeyDown}
           className="flex-1 border border-line rounded-full px-4 py-2.5 text-sm bg-card" />
         <button onClick={send} className="bg-amber2 text-white w-11 rounded-full flex items-center justify-center shrink-0">
           <Icon d={I.send} cls="w-5 h-5" />
