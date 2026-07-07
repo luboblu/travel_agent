@@ -14,8 +14,10 @@ from firebase_admin import auth as fb_auth
 from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.responses import FileResponse, JSONResponse
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+# .strip() 很重要：secret 若被 PowerShell 管線帶入結尾換行(\r\n)，
+# 直接拼進 URL 會讓 httpx 丟 InvalidURL
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
 GEMINI_URL = (
     f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 )
