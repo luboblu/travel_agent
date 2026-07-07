@@ -80,6 +80,26 @@ const authErr = (code) => ({
 }[code] || '發生錯誤，請稍後再試');
 const rid = () => Date.now() + Math.floor(Math.random()*1e6);
 
+/* --------------------------- confirm-enter hook -------------------------- */
+// 按一次 Enter 只是「預備」，1.2 秒內再按一次才真的送出（避免打字/選字誤觸）
+function useConfirmEnter(action) {
+  const [armed, setArmed] = useState(false);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const onKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+    if (armed) {
+      clearTimeout(timer.current);
+      setArmed(false);
+      action();
+    } else {
+      setArmed(true);
+      timer.current = setTimeout(() => setArmed(false), 1200);
+    }
+  };
+  return { armed, onKeyDown };
+}
+
 /* --------------------------- google maps helpers ------------------------- */
 // 從貼上的 Google 地圖連結或純文字地址，抽出可嵌入地圖的查詢字串
 const mapEmbedQuery = (input) => {
@@ -154,6 +174,7 @@ const I = {
   send: <path d="M4 12l16-8-6 16-3-6-7-2Z"/>,
   pin:  <path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>,
   x:    <path d="M6 6l12 12M18 6L6 18"/>,
+  shield: <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3Z"/>,
 };
 const Icon = ({d, cls='w-5 h-5'}) => (
   <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
@@ -243,12 +264,20 @@ function GroupsScreen({ user }) {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
     const unsub = db.collection('groups')
       .where('members','array-contains',user.uid)
       .onSnapshot(s => setGroups(s.docs.map(d=>({id:d.id,...d.data()}))),
                   e => { console.error(e); setGroups([]); });
+    return unsub;
+  }, [user.uid]);
+
+  useEffect(() => {
+    const unsub = db.collection('users').doc(user.uid)
+      .onSnapshot(d => setIsAdmin(d.data()?.role === 'admin'), () => setIsAdmin(false));
     return unsub;
   }, [user.uid]);
 
@@ -281,7 +310,11 @@ function GroupsScreen({ user }) {
     } catch (e) { console.error(e); setMsg('加入失敗，請確認邀請碼'); }
   };
 
+  const createEnter = useConfirmEnter(create);
+  const joinEnter = useConfirmEnter(join);
+
   if (active) return <GroupRoom user={user} groupId={active} onBack={()=>setActive(null)} />;
+  if (showAdmin) return <AdminPanel user={user} onBack={()=>setShowAdmin(false)} />;
 
   return (
     <div className="min-h-screen">
@@ -293,6 +326,11 @@ function GroupsScreen({ user }) {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-slate2 hidden sm:block">{user.displayName}</span>
+            {isAdmin && (
+              <button onClick={()=>setShowAdmin(true)} className="text-slate2 hover:text-ink flex items-center gap-1 text-sm">
+                <Icon d={I.shield} cls="w-4 h-4" />管理後台
+              </button>
+            )}
             <button onClick={()=>auth.signOut()} className="text-slate2 hover:text-ink flex items-center gap-1 text-sm">
               <Icon d={I.logout} cls="w-4 h-4" />登出
             </button>
@@ -309,19 +347,21 @@ function GroupsScreen({ user }) {
             <p className="text-sm font-medium mb-2">開新旅程</p>
             <div className="flex gap-2">
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="例如：京都五日"
-                onKeyDown={e=>e.key==='Enter'&&create()}
-                className="flex-1 border border-line rounded-xl px-3 py-2 text-sm" />
+                onKeyDown={createEnter.onKeyDown}
+                className={cx('flex-1 border rounded-xl px-3 py-2 text-sm', createEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
               <button onClick={create} className="bg-amber2 text-white px-3 rounded-xl flex items-center"><Icon d={I.plus} cls="w-5 h-5"/></button>
             </div>
+            {createEnter.armed && <p className="text-xs text-amber2 mt-1.5">再按一次 Enter 確認送出</p>}
           </div>
           <div className="bg-card border border-line rounded-2xl p-4">
             <p className="text-sm font-medium mb-2">用邀請碼加入</p>
             <div className="flex gap-2">
               <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="6 碼邀請碼"
-                onKeyDown={e=>e.key==='Enter'&&join()} maxLength={6}
-                className="flex-1 border border-line rounded-xl px-3 py-2 text-sm tracking-widest uppercase" />
+                onKeyDown={joinEnter.onKeyDown} maxLength={6}
+                className={cx('flex-1 border rounded-xl px-3 py-2 text-sm tracking-widest uppercase', joinEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
               <button onClick={join} className="bg-teal2 text-white px-3 rounded-xl flex items-center"><Icon d={I.users} cls="w-5 h-5"/></button>
             </div>
+            {joinEnter.armed && <p className="text-xs text-amber2 mt-1.5">再按一次 Enter 確認送出</p>}
             {msg && <p className="text-xs text-red-600 mt-2">{msg}</p>}
           </div>
         </div>
@@ -349,6 +389,95 @@ function GroupsScreen({ user }) {
             ))}
           </div>
         )}
+      </main>
+    </div>
+  );
+}
+
+/* ------------------------------ admin panel ------------------------------ */
+// 管理員只看得到：使用者清單（名稱/信箱/註冊時間）、旅程清單（名稱/擁有者/人數/邀請碼），
+// 以及刪除旅程的權力。刻意不顯示行程/待辦/分帳/聊天內容 —— 那是使用者的旅程隱私，
+// 管理員身分是平台維運，不是旅程成員。
+function AdminPanel({ onBack }) {
+  const [users, setUsers] = useState(null);
+  const [groups, setGroups] = useState(null);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    const unsub = db.collection('users').orderBy('createdAt','desc')
+      .onSnapshot(s => setUsers(s.docs.map(d=>({id:d.id,...d.data()}))),
+                  e => { console.error(e); setErr('讀取使用者清單失敗（權限不足或尚未部署新規則）'); });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsub = db.collection('groups').orderBy('createdAt','desc')
+      .onSnapshot(s => setGroups(s.docs.map(d=>({id:d.id,...d.data()}))),
+                  e => { console.error(e); setErr('讀取旅程清單失敗（權限不足或尚未部署新規則）'); });
+    return unsub;
+  }, []);
+
+  const delGroup = async (g) => {
+    if (!confirm(`確定要刪除旅程「${g.name}」嗎？此動作無法復原，成員的行程/分帳/聊天都會一併消失。`)) return;
+    try { await db.collection('groups').doc(g.id).delete(); }
+    catch (e) { console.error(e); alert('刪除失敗'); }
+  };
+
+  const fmtDate = (ts) => ts?.toDate ? ts.toDate().toLocaleDateString('zh-TW') : '—';
+
+  return (
+    <div className="min-h-screen">
+      <header className="border-b border-line bg-card/70 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-5 h-16 flex items-center gap-3">
+          <button onClick={onBack} className="text-slate2 hover:text-ink"><Icon d={I.back} cls="w-5 h-5"/></button>
+          <Icon d={I.shield} cls="w-5 h-5 text-teal2" />
+          <h1 className="font-display text-xl">管理後台</h1>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-5 py-8">
+        {err && <p className="text-sm text-red-600 mb-4">{err}</p>}
+
+        <div className="grid sm:grid-cols-2 gap-3 mb-8">
+          <div className="bg-card border border-line rounded-2xl p-5">
+            <p className="text-xs text-slate2">總使用者數</p>
+            <p className="font-display text-3xl mt-1">{users===null?'…':users.length}</p>
+          </div>
+          <div className="bg-card border border-line rounded-2xl p-5">
+            <p className="text-xs text-slate2">總旅程數</p>
+            <p className="font-display text-3xl mt-1">{groups===null?'…':groups.length}</p>
+          </div>
+        </div>
+
+        <h2 className="font-display text-xl mb-3">使用者</h2>
+        <div className="bg-card border border-line rounded-2xl divide-y divide-line mb-8">
+          {users===null ? <p className="p-4 text-sm text-slate2">載入中…</p> :
+           users.length===0 ? <p className="p-4 text-sm text-slate2">尚無使用者</p> :
+           users.map(u=>(
+            <div key={u.id} className="p-4 flex items-center justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <p className="font-medium truncate">{u.username || '（未命名）'}{u.role==='admin' && <span className="ml-1.5 text-[10px] text-teal2 border border-teal2/40 rounded px-1 py-0.5">管理員</span>}</p>
+                <p className="text-xs text-slate2 truncate">{u.email}</p>
+              </div>
+              <span className="text-xs text-slate2 shrink-0">{fmtDate(u.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+
+        <h2 className="font-display text-xl mb-3">旅程</h2>
+        <div className="bg-card border border-line rounded-2xl divide-y divide-line">
+          {groups===null ? <p className="p-4 text-sm text-slate2">載入中…</p> :
+           groups.length===0 ? <p className="p-4 text-sm text-slate2">尚無旅程</p> :
+           groups.map(g=>(
+            <div key={g.id} className="p-4 flex items-center justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <p className="font-medium truncate">{g.name}</p>
+                <p className="text-xs text-slate2">邀請碼 {g.code} · {(g.members||[]).length} 人 · {fmtDate(g.createdAt)}</p>
+              </div>
+              <button onClick={()=>delGroup(g)} className="text-red-500 hover:text-red-600 shrink-0"><Icon d={I.trash} cls="w-4 h-4"/></button>
+            </div>
+          ))}
+        </div>
       </main>
     </div>
   );
@@ -437,8 +566,15 @@ function InviteChip({ code }) {
 }
 
 /* ------------------------------- itinerary ------------------------------ */
+const todayISO = () => new Date().toISOString().slice(0,10);
+const isIsoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s||'');
+const fmtDayDate = (iso) => {
+  const d = new Date(iso+'T00:00:00');
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('zh-TW', { month:'numeric', day:'numeric', weekday:'short' });
+};
+
 function Itinerary({ data, save }) {
-  const [form, setForm] = useState({ day:'Day 1', time:'', title:'', note:'', map:'' });
+  const [form, setForm] = useState({ day: todayISO(), time:'', title:'', note:'', map:'' });
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiErr, setAiErr] = useState('');
@@ -478,6 +614,10 @@ function Itinerary({ data, save }) {
   };
   const del = (id) => save(data.filter(i=>i.id!==id));
   const days = [...new Set(data.map(i=>i.day))];
+  const isoDays = days.filter(isIsoDate);
+  const dayLabel = (d) => isIsoDate(d) ? `Day ${isoDays.indexOf(d)+1}` : d;
+  const aiEnter = useConfirmEnter(aiGen);
+  const addEnter = useConfirmEnter(add);
 
   return (
     <div>
@@ -486,36 +626,39 @@ function Itinerary({ data, save }) {
         <div className="flex gap-2">
           <input value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)}
             placeholder="例如：京都三天，喜歡神社和美食，步調悠閒"
-            onKeyDown={e=>e.key==='Enter'&&aiGen()} disabled={aiBusy}
-            className="flex-1 border border-line rounded-xl px-3 py-2 text-sm" />
+            onKeyDown={aiEnter.onKeyDown} disabled={aiBusy}
+            className={cx('flex-1 border rounded-xl px-3 py-2 text-sm', aiEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
           <button onClick={aiGen} disabled={aiBusy}
             className="bg-teal2 text-white px-4 rounded-xl text-sm shrink-0 disabled:opacity-50">
             {aiBusy ? '生成中…' : '生成'}
           </button>
         </div>
+        {aiEnter.armed && <p className="text-xs text-amber2 mt-2">再按一次 Enter 確認送出</p>}
         {aiErr && <p className="text-xs text-red-600 mt-2">{aiErr}</p>}
       </div>
 
       <div className="bg-card border border-line rounded-2xl p-4 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <input value={form.day} onChange={e=>setForm({...form,day:e.target.value})} placeholder="Day 1"
+        <input type="date" value={form.day} onChange={e=>setForm({...form,day:e.target.value})}
           className="border border-line rounded-lg px-2.5 py-2 text-sm" />
         <input value={form.time} onChange={e=>setForm({...form,time:e.target.value})} placeholder="09:00" type="time"
           className="border border-line rounded-lg px-2.5 py-2 text-sm" />
         <input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="要去哪、做什麼"
-          onKeyDown={e=>e.key==='Enter'&&add()}
-          className="col-span-2 sm:col-span-1 border border-line rounded-lg px-2.5 py-2 text-sm" />
+          onKeyDown={addEnter.onKeyDown}
+          className={cx('col-span-2 sm:col-span-1 border rounded-lg px-2.5 py-2 text-sm', addEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
         <button onClick={add} className="col-span-2 sm:col-span-1 bg-ink text-paper rounded-lg py-2 text-sm flex items-center justify-center gap-1">
           <Icon d={I.plus} cls="w-4 h-4"/>加入行程
         </button>
         <input value={form.map} onChange={e=>setForm({...form,map:e.target.value})}
-          placeholder="Google 地圖連結或地址（選填）" onKeyDown={e=>e.key==='Enter'&&add()}
-          className="col-span-2 sm:col-span-4 border border-line rounded-lg px-2.5 py-2 text-sm" />
+          placeholder="Google 地圖連結或地址（選填）" onKeyDown={addEnter.onKeyDown}
+          className={cx('col-span-2 sm:col-span-4 border rounded-lg px-2.5 py-2 text-sm', addEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
+        {addEnter.armed && <p className="col-span-2 sm:col-span-4 text-xs text-amber2">再按一次 Enter 確認送出</p>}
       </div>
 
       {data.length===0 ? <Empty text="還沒排定行程。加入第一個景點吧。" /> : days.map(day=>(
         <div key={day} className="mb-6">
           <h3 className="font-display text-lg mb-2 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber2" />{day}
+            <span className="w-1.5 h-1.5 rounded-full bg-amber2" />{dayLabel(day)}
+            {isIsoDate(day) && <span className="text-sm font-sans font-normal text-slate2">· {fmtDayDate(day)}</span>}
           </h3>
           <div className="border-l-2 border-line ml-[3px] pl-4 space-y-2">
             {data.filter(i=>i.day===day).map(i=>(
@@ -565,8 +708,8 @@ function ItineraryDetail({ item, onClose, onSave, onDelete }) {
 
         <div className="grid grid-cols-2 gap-2 mb-3">
           <label className="block">
-            <span className="text-xs text-slate2">Day</span>
-            <input value={f.day} onChange={e=>setF({...f,day:e.target.value})}
+            <span className="text-xs text-slate2">日期</span>
+            <input type="date" value={isIsoDate(f.day) ? f.day : ''} onChange={e=>setF({...f,day:e.target.value})}
               className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
           </label>
           <label className="block">
@@ -632,15 +775,17 @@ function Checklist({ items, save, placeholder }) {
   const toggle = (id)=> save(items.map(i=>i.id===id?{...i,done:!i.done}:i));
   const del = (id)=> save(items.filter(i=>i.id!==id));
   const left = items.filter(i=>!i.done).length;
+  const addEnter = useConfirmEnter(add);
 
   return (
     <div>
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-1.5">
         <input value={text} onChange={e=>setText(e.target.value)} placeholder={placeholder}
-          onKeyDown={e=>e.key==='Enter'&&add()}
-          className="flex-1 border border-line rounded-xl px-3 py-2.5 text-sm bg-card" />
+          onKeyDown={addEnter.onKeyDown}
+          className={cx('flex-1 border rounded-xl px-3 py-2.5 text-sm bg-card', addEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
         <button onClick={add} className="bg-ink text-paper px-4 rounded-xl flex items-center"><Icon d={I.plus} cls="w-5 h-5"/></button>
       </div>
+      {addEnter.armed && <p className="text-xs text-amber2 mb-2.5">再按一次 Enter 確認送出</p>}
       {items.length>0 && <p className="text-xs text-slate2 mb-3">還有 {left} 項未完成</p>}
       {items.length===0 ? <Empty text="清單是空的。" /> : (
         <div className="space-y-2">
@@ -733,6 +878,7 @@ function Split({ data, members, me, save }) {
     setForm({ ...form, title:'', amount:'' });
   };
   const del = (id)=> save(data.filter(e=>e.id!==id));
+  const aiEnter = useConfirmEnter(aiAdd);
 
   const settle = useMemo(()=>{
     const bal = {}; names.forEach(n=>bal[n]=0);
@@ -749,8 +895,8 @@ function Split({ data, members, me, save }) {
         <div className="flex gap-2">
           <input value={aiText} onChange={e=>setAiText(e.target.value)}
             placeholder="例如：我付了 3000 晚餐請大家"
-            onKeyDown={e=>e.key==='Enter'&&aiAdd()} disabled={aiBusy}
-            className="flex-1 min-w-0 border border-line rounded-xl px-3 py-2 text-sm" />
+            onKeyDown={aiEnter.onKeyDown} disabled={aiBusy}
+            className={cx('flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm', aiEnter.armed?'border-amber2 ring-2 ring-amber2/30':'border-line')} />
           <button onClick={aiAdd} disabled={aiBusy}
             className="bg-teal2 text-white px-3 rounded-xl text-sm shrink-0 disabled:opacity-50">
             {aiBusy ? '解析中…' : '記帳'}
@@ -760,6 +906,7 @@ function Split({ data, members, me, save }) {
           <input ref={fileRef} type="file" accept="image/*" className="hidden"
             onChange={e=>{ onReceipt(e.target.files[0]); e.target.value=''; }} />
         </div>
+        {aiEnter.armed && <p className="text-xs text-amber2 mt-2">再按一次 Enter 確認送出</p>}
         {aiMsg && <p className="text-xs text-red-600 mt-2">{aiMsg}</p>}
       </div>
 

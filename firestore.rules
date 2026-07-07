@@ -4,11 +4,20 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
     function uid() { return request.auth.uid; }
+    function isAdmin() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(uid())).data.role == 'admin';
+    }
 
-    // 每個使用者只能寫自己的 profile
+    // 每個使用者只能寫自己的 profile；role 欄位不可由使用者自己新增或修改
+    // （要開通管理員，必須在 Firebase Console 手動幫該使用者的文件加上 role:"admin"）
     match /users/{userId} {
-      allow read:  if signedIn();
-      allow write: if signedIn() && uid() == userId;
+      allow read:   if signedIn();
+      allow create: if signedIn() && uid() == userId
+                    && !('role' in request.resource.data);
+      allow update: if signedIn() && uid() == userId
+                    && request.resource.data.role == resource.data.role;
+      allow delete: if false;
     }
 
     // 邀請碼：登入者可讀（只揭露 gid 與名稱），建立群組時寫入
@@ -17,9 +26,9 @@ service cloud.firestore {
       allow write: if signedIn();
     }
 
-    // 群組本體：只有成員能讀寫；非成員只能「把自己加進成員」來加入
+    // 群組本體：成員能讀寫；非成員只能「把自己加進成員」來加入；管理員可讀取＋刪除（後台監控用）
     match /groups/{gid} {
-      allow read:   if signedIn() && uid() in resource.data.members;
+      allow read:   if signedIn() && (uid() in resource.data.members || isAdmin());
       allow create: if signedIn() && uid() in request.resource.data.members;
       allow update: if signedIn() && (
                        uid() in resource.data.members            // 既有成員可更新
@@ -28,9 +37,10 @@ service cloud.firestore {
                             && resource.data.members.size() + 1 == request.resource.data.members.size()
                           )
                     );
-      allow delete: if signedIn() && resource.data.ownerId == uid();
+      allow delete: if signedIn() && (resource.data.ownerId == uid() || isAdmin());
 
       // 聊天訊息：獨立文件，只有成員能讀、只能以自己身分發、不可竄改
+      // 管理員「不」享有旁路權限 —— 聊天內容維持只有旅伴看得到
       match /messages/{mid} {
         function group() { return get(/databases/$(database)/documents/groups/$(gid)).data; }
         allow read:   if signedIn() && uid() in group().members;
