@@ -75,9 +75,14 @@ const authErr = (code) => ({
   'auth/user-not-found':'找不到這個帳號',
   'auth/wrong-password':'密碼錯誤',
   'auth/invalid-credential':'帳號或密碼錯誤',
+  'auth/invalid-login-credentials':'帳號或密碼錯誤',
   'auth/email-already-in-use':'這個電子郵件已被註冊',
   'auth/weak-password':'密碼至少需要 6 個字元',
-}[code] || '發生錯誤，請稍後再試');
+  'auth/network-request-failed':'網路連線失敗，請確認手機網路，或關閉隱私/擋廣告瀏覽器再試',
+  'auth/too-many-requests':'嘗試次數過多，請稍後再試',
+  'auth/unauthorized-domain':'這個網址未被授權登入，請改用已部署的網址（例如 travel-8e1f8.web.app），或把此網域加入 Firebase 授權清單',
+  'auth/operation-not-allowed':'此登入方式未啟用，請至 Firebase 開啟 Email/密碼登入',
+}[code] || `發生錯誤，請稍後再試（${code || '未知錯誤'}）`);
 const rid = () => Date.now() + Math.floor(Math.random()*1e6);
 
 /* --------------------------- confirm-enter hook -------------------------- */
@@ -187,23 +192,39 @@ function AuthScreen() {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
+  const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const resetPw = async () => {
+    setErr(''); setMsg('');
+    const em = email.trim().toLowerCase();
+    if (!em) { setErr('請先輸入電子郵件，再點忘記密碼'); return; }
+    setBusy(true);
+    try {
+      await auth.sendPasswordResetEmail(em);
+      setMsg(`重設密碼的信已寄到 ${em}，請到信箱（含垃圾郵件）查看`);
+    } catch (e) { console.error('reset error:', e.code, e.message); setErr(authErr(e.code)); }
+    setBusy(false);
+  };
+
   const submit = async () => {
+    setMsg('');
     setErr('');
-    if (!email || !pw || (mode==='register' && !name.trim())) { setErr('請填寫所有欄位'); return; }
+    // 手機鍵盤常自動大寫首字或多加空格，先正規化 email
+    const em = email.trim().toLowerCase();
+    if (!em || !pw || (mode==='register' && !name.trim())) { setErr('請填寫所有欄位'); return; }
     setBusy(true);
     try {
       if (mode === 'register') {
-        const { user } = await auth.createUserWithEmailAndPassword(email, pw);
+        const { user } = await auth.createUserWithEmailAndPassword(em, pw);
         await user.updateProfile({ displayName: name.trim() });
         await db.collection('users').doc(user.uid).set({
-          username: name.trim(), email, createdAt: FV.serverTimestamp()
+          username: name.trim(), email: em, createdAt: FV.serverTimestamp()
         });
       } else {
-        await auth.signInWithEmailAndPassword(email, pw);
+        await auth.signInWithEmailAndPassword(em, pw);
       }
-    } catch (e) { setErr(authErr(e.code)); }
+    } catch (e) { console.error('auth error:', e.code, e.message); setErr(authErr(e.code)); }
     setBusy(false);
   };
 
@@ -221,7 +242,7 @@ function AuthScreen() {
         <div className="bg-card border border-line rounded-2xl shadow-sm p-6">
           <div className="flex gap-1 p-1 bg-paper rounded-xl mb-6">
             {[['login','登入'],['register','建立帳號']].map(([m,l])=>(
-              <button key={m} onClick={()=>{setMode(m);setErr('')}}
+              <button key={m} onClick={()=>{setMode(m);setErr('');setMsg('')}}
                 className={cx('flex-1 py-2 rounded-lg text-sm font-medium transition',
                   mode===m ? 'bg-card text-ink shadow-sm' : 'text-slate2')}>{l}</button>
             ))}
@@ -235,6 +256,14 @@ function AuthScreen() {
                  onEnter={submit} />
 
           {err && <p className="text-sm text-red-600 mt-1 mb-2">{err}</p>}
+          {msg && <p className="text-sm text-teal2 mt-1 mb-2">{msg}</p>}
+
+          {mode==='login' && (
+            <div className="text-right -mt-1 mb-1">
+              <button type="button" onClick={resetPw} disabled={busy}
+                className="text-xs text-slate2 underline underline-offset-2 disabled:opacity-50">忘記密碼？</button>
+            </div>
+          )}
 
           <button onClick={submit} disabled={busy}
             className="w-full mt-3 bg-ink text-paper py-3 rounded-xl font-medium hover:bg-slate2 transition disabled:opacity-50">
@@ -247,15 +276,23 @@ function AuthScreen() {
   );
 }
 
-const Field = ({label,type='text',value,onChange,placeholder,onEnter}) => (
+const Field = ({label,type='text',value,onChange,placeholder,onEnter}) => {
+  const isEmail = type === 'email';
+  return (
   <label className="block mb-4">
     <span className="text-xs font-medium text-slate2">{label}</span>
     <input type={type} value={value} placeholder={placeholder}
+      autoCapitalize={isEmail ? 'none' : undefined}
+      autoCorrect={isEmail ? 'off' : undefined}
+      spellCheck={isEmail ? false : undefined}
+      inputMode={isEmail ? 'email' : undefined}
+      autoComplete={type==='password' ? 'current-password' : (isEmail ? 'email' : undefined)}
       onChange={e=>onChange(e.target.value)}
       onKeyDown={e=>{ if(e.key==='Enter'&&onEnter) onEnter(); }}
       className="mt-1 w-full border border-line rounded-xl px-3 py-2.5 bg-card text-sm" />
   </label>
-);
+  );
+};
 
 /* ---------------------------- groups screen ----------------------------- */
 function GroupsScreen({ user }) {
