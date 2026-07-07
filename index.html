@@ -168,6 +168,7 @@ const I = {
   pin:  <path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>,
   x:    <path d="M6 6l12 12M18 6L6 18"/>,
   shield: <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3Z"/>,
+  edit: <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/>,
 };
 const Icon = ({d, cls='w-5 h-5'}) => (
   <svg className={cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
@@ -774,75 +775,115 @@ const dayThenTime = (a,b)=> (a.day+a.time).localeCompare(b.day+b.time);
 
 /* --------------------------- itinerary detail ---------------------------- */
 function ItineraryDetail({ item, onClose, onSave, onDelete }) {
+  const [mode, setMode] = useState('view');   // 'view'（放大檢視）→ 按編輯才進 'edit'
   const [f, setF] = useState({ day: item.day||'', time: item.time||'', title: item.title||'', note: item.note||'', map: item.map||'' });
-  const embedSrc = mapEmbedSrc(f.map);
+  const embedSrc = mapEmbedSrc(mode==='edit' ? f.map : (item.map||''));
+  const dayText = isIsoDate(item.day) ? fmtDayDate(item.day) : (item.day||'');
 
   return (
     <div className="fixed inset-0 bg-ink/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()}
         className="bg-card rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-xl">編輯行程</h3>
+          <h3 className="font-display text-xl">{mode==='edit' ? '編輯行程' : '行程詳情'}</h3>
           <button onClick={onClose} className="text-slate2 hover:text-ink"><Icon d={I.x} cls="w-5 h-5"/></button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <label className="block">
-            <span className="text-xs text-slate2">日期</span>
-            <input type="date" value={isIsoDate(f.day) ? f.day : ''} onChange={e=>setF({...f,day:e.target.value})}
-              className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
-          </label>
-          <label className="block">
-            <span className="text-xs text-slate2">時間</span>
-            <input type="time" value={f.time} onChange={e=>setF({...f,time:e.target.value})}
-              className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
-          </label>
-        </div>
-
-        <label className="block mb-3">
-          <span className="text-xs text-slate2">標題</span>
-          <input value={f.title} onChange={e=>setF({...f,title:e.target.value})}
-            className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
-        </label>
-
-        <label className="block mb-3">
-          <span className="text-xs text-slate2">備註</span>
-          <textarea value={f.note} onChange={e=>setF({...f,note:e.target.value})} rows={2}
-            className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm resize-none" />
-        </label>
-
-        <label className="block mb-2">
-          <span className="text-xs text-slate2">Google 地圖連結或地址</span>
-          <input value={f.map} onChange={e=>setF({...f,map:e.target.value})}
-            placeholder="貼上 Google 地圖分享連結，或直接輸入地址／店名"
-            className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
-        </label>
-
-        {f.map && (
-          embedSrc ? (
-            <div className="rounded-xl overflow-hidden border border-line mb-2">
-              <iframe src={embedSrc} width="100%" height="220" style={{border:0}} loading="lazy" title="map-preview" />
+        {mode === 'view' ? (
+          <>
+            <div className="mb-4">
+              <div className="flex items-center gap-2 font-mono text-sm text-teal2 mb-1">
+                {(dayText || item.time) && (
+                  <span>{dayText}{dayText && item.time ? ' · ' : ''}{item.time || ''}</span>
+                )}
+              </div>
+              <h2 className="font-display text-2xl leading-snug break-words">{item.title || '（無標題）'}</h2>
+              {item.note && <p className="text-slate2 mt-3 whitespace-pre-wrap break-words">{item.note}</p>}
             </div>
-          ) : (
-            <p className="text-xs text-slate2/70 mb-2">這個連結無法預覽地圖，但仍可點下方按鈕開啟。</p>
-          )
-        )}
-        {f.map && (
-          <a href={mapExternalUrl(f.map)} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-teal2 hover:underline mb-4">
-            <Icon d={I.pin} cls="w-4 h-4"/>在 Google 地圖開啟
-          </a>
-        )}
 
-        <div className="flex gap-2 mt-2">
-          <button onClick={onDelete} className="text-red-500 hover:text-red-600 text-sm px-3 py-2 rounded-lg border border-line flex items-center gap-1">
-            <Icon d={I.trash} cls="w-4 h-4"/>刪除
-          </button>
-          <button onClick={()=>onSave({...f, title: f.title.trim() || item.title, map: f.map.trim()})}
-            className="flex-1 bg-ink text-paper rounded-lg py-2 text-sm font-medium">
-            儲存
-          </button>
-        </div>
+            {item.map && embedSrc && (
+              <div className="rounded-xl overflow-hidden border border-line mb-3">
+                <iframe src={embedSrc} width="100%" height="220" style={{border:0}} loading="lazy" title="map-preview" />
+              </div>
+            )}
+            {item.map && (
+              <a href={mapExternalUrl(item.map)} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-teal2 hover:underline mb-4">
+                <Icon d={I.pin} cls="w-4 h-4"/>在 Google 地圖開啟
+              </a>
+            )}
+
+            <div className="flex gap-2 mt-4">
+              <button onClick={onDelete} className="text-red-500 hover:text-red-600 text-sm px-3 py-2 rounded-lg border border-line flex items-center gap-1">
+                <Icon d={I.trash} cls="w-4 h-4"/>刪除
+              </button>
+              <button onClick={()=>setMode('edit')}
+                className="flex-1 bg-ink text-paper rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-1">
+                <Icon d={I.edit} cls="w-4 h-4"/>編輯
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <label className="block">
+                <span className="text-xs text-slate2">日期</span>
+                <input type="date" value={isIsoDate(f.day) ? f.day : ''} onChange={e=>setF({...f,day:e.target.value})}
+                  className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate2">時間</span>
+                <input type="time" value={f.time} onChange={e=>setF({...f,time:e.target.value})}
+                  className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
+              </label>
+            </div>
+
+            <label className="block mb-3">
+              <span className="text-xs text-slate2">標題</span>
+              <input value={f.title} onChange={e=>setF({...f,title:e.target.value})}
+                className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
+            </label>
+
+            <label className="block mb-3">
+              <span className="text-xs text-slate2">備註</span>
+              <textarea value={f.note} onChange={e=>setF({...f,note:e.target.value})} rows={2}
+                className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm resize-none" />
+            </label>
+
+            <label className="block mb-2">
+              <span className="text-xs text-slate2">Google 地圖連結或地址</span>
+              <input value={f.map} onChange={e=>setF({...f,map:e.target.value})}
+                placeholder="貼上 Google 地圖分享連結，或直接輸入地址／店名"
+                className="mt-1 w-full border border-line rounded-lg px-2.5 py-2 text-sm" />
+            </label>
+
+            {f.map && (
+              embedSrc ? (
+                <div className="rounded-xl overflow-hidden border border-line mb-2">
+                  <iframe src={embedSrc} width="100%" height="220" style={{border:0}} loading="lazy" title="map-preview" />
+                </div>
+              ) : (
+                <p className="text-xs text-slate2/70 mb-2">這個連結無法預覽地圖，但仍可點下方按鈕開啟。</p>
+              )
+            )}
+            {f.map && (
+              <a href={mapExternalUrl(f.map)} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-teal2 hover:underline mb-4">
+                <Icon d={I.pin} cls="w-4 h-4"/>在 Google 地圖開啟
+              </a>
+            )}
+
+            <div className="flex gap-2 mt-2">
+              <button onClick={()=>setMode('view')} className="text-slate2 hover:text-ink text-sm px-3 py-2 rounded-lg border border-line">
+                返回
+              </button>
+              <button onClick={()=>onSave({...f, title: f.title.trim() || item.title, map: f.map.trim()})}
+                className="flex-1 bg-ink text-paper rounded-lg py-2 text-sm font-medium">
+                儲存
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
