@@ -54,7 +54,7 @@ tailwind.config = {
   // ===== Gemini API（免費版，和 NTPU AI 同一套用法）=====
   // 到 https://aistudio.google.com/apikey 建立免費 key 貼在下面。
   // 記得到 GCP Console 幫這把 key 加「網站限制」：https://travel-8e1f8.web.app/*
-  const GEMINI_API_KEY = "AIzaSyDJpWT6Zz-GJqT_FEwCQiEv0zZmGgpiIxM";
+  const GEMINI_API_KEY = "AIzaSyDs2IKL3Teqa1pSgtTsQH6LChmlxr9rrp0";
   const GEMINI_MODEL = "gemini-2.5-flash";
 </script>
 </head>
@@ -587,18 +587,20 @@ function Itinerary({ data, save }) {
       const out = await askGemini({
         system: '你是旅遊行程規劃助理。根據使用者描述產生具體、可執行的行程。' +
           'day 一律用「Day 1」「Day 2」…格式；time 用 24 小時制 HH:MM；' +
-          'title 是地點或活動名稱（15 字內）；note 放交通方式、預估花費或小提醒（可為空字串）。' +
+          'title 是地點或活動名稱（15 字內）；note 放交通方式、預估花費或小提醒（可為空字串）；' +
+          'place 是這個地點在 Google 地圖上可查到的名稱，請附上城市/地區避免搜到同名地點' +
+          '（例如「伏見稻荷大社, 京都」），這裡填「地名文字」，不要生成網址或座標，若無明確地點可留空字串。' +
           '行程要順路、節奏合理，並包含用餐安排。',
         user: p,
         schema: { type: 'OBJECT', required: ['items'], properties: { items: {
           type: 'ARRAY', items: { type: 'OBJECT',
-            required: ['day', 'time', 'title', 'note'],
-            properties: { day: {type:'STRING'}, time: {type:'STRING'}, title: {type:'STRING'}, note: {type:'STRING'} }
+            required: ['day', 'time', 'title', 'note', 'place'],
+            properties: { day: {type:'STRING'}, time: {type:'STRING'}, title: {type:'STRING'}, note: {type:'STRING'}, place: {type:'STRING'} }
           } } } }
       });
       const items = (out?.items || []).map(it => ({
         id: rid(), day: it.day || 'Day 1', time: it.time || '',
-        title: (it.title || '').trim(), note: it.note || ''
+        title: (it.title || '').trim(), note: it.note || '', map: (it.place || '').trim()
       })).filter(it => it.title);
       if (!items.length) { setAiErr('AI 沒有產生行程，換個說法再試一次'); }
       else { save([...data, ...items].sort(dayThenTime)); setAiPrompt(''); }
