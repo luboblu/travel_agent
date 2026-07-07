@@ -20,10 +20,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // 邀請碼：登入者可讀（只揭露 gid 與名稱），建立群組時寫入
+    // 邀請碼：登入者可讀（加入群組時需要，只揭露 gid 與名稱）
+    // 只能建立指向自己群組的新碼；不可覆寫/刪除既有碼，避免劫持
     match /codes/{code} {
-      allow read:  if signedIn();
-      allow write: if signedIn();
+      allow read:   if signedIn();
+      allow create: if signedIn()
+                    && get(/databases/$(database)/documents/groups/$(request.resource.data.gid)).data.ownerId == uid();
+      allow update, delete: if false;
     }
 
     // 群組本體：成員能讀寫；非成員只能「把自己加進成員」來加入；管理員可讀取＋刪除（後台監控用）

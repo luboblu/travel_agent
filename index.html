@@ -1047,6 +1047,7 @@ function Split({ data, members, me, save }) {
   const [aiText, setAiText] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState('');
+  const [aiPending, setAiPending] = useState(null);
   const fileRef = useRef(null);
   const cleanParticipants = (list) => {
     const picked = (Array.isArray(list) ? list : [])
@@ -1080,7 +1081,7 @@ function Split({ data, members, me, save }) {
 
   const aiAdd = async () => {
     const t = aiText.trim(); if (!t || aiBusy) return;
-    setAiBusy(true); setAiMsg('');
+    setAiBusy(true); setAiMsg(''); setAiPending(null);
     try {
       const d = await askGemini({
         system: '你是記帳解析助理。從使用者的一句話中抽取消費資訊。' +
@@ -1093,6 +1094,8 @@ function Split({ data, members, me, save }) {
           '- 「大家/我們/全員/一起吃/一起搭」表示 participants 是所有群組成員。\n' +
           '- 「我幫 A 付」「A 幫 B 付」「替 B 墊」「幫 B 出」表示 payer 是付錢的人，participants 只放被代付的人，不是大家均分。\n' +
           '- 「A 幫 B 和 C 付」participants 是 B、C。\n' +
+          '- 「請客/我請/請大家/招待/我出這餐/我請客」表示付款人自行吸收、其他人不用分攤，participants 只放付款人自己一人。\n' +
+          '- 「還/還錢/還給/拿現金給/轉給 B」是還款：payer 是拿出錢的人，participants 只放收到錢的人一人，title 用「還款」。\n' +
           '- 如果只說「我付了 3000 午餐」但沒說幫誰，預設 participants 是所有群組成員。\n' +
           'title 是消費項目（10 字內）；amount 是數字金額（不含幣別符號）。',
         user: t,
@@ -1105,16 +1108,38 @@ function Split({ data, members, me, save }) {
       const amt = Number(d.amount);
       if (!d.title || !amt) { setAiMsg('AI 看不懂這筆帳，請描述得更清楚一點'); }
       else {
-        const participants = cleanParticipants(d.participants);
-        save([...data, { id: rid(), title: d.title, amount: amt,
-          payer: names.includes(d.payer) ? d.payer : me.displayName,
-          participants: participants.length ? participants : names,
-          at: new Date().toISOString() }]);
-        setAiText('');
+        // 比對 AI 給的名字有沒有對上成員；對不上就先讓使用者確認，
+        // 不要靜默記成「你付／全員均分」（那會讓錯誤的分帳悄悄成立）
+        const rawParts = (Array.isArray(d.participants) ? d.participants : [])
+          .map(n => String(n || '').trim()).filter(Boolean);
+        const cleaned = cleanParticipants(d.participants);
+        const dropped = [...new Set(rawParts.filter(n => !names.includes(n)))];
+        const payerOk = names.includes(d.payer);
+        const payer = payerOk ? d.payer : me.displayName;
+        const participants = cleaned.length ? cleaned : names;
+        const expense = { id: rid(), title: d.title, amount: amt, payer, participants,
+          at: new Date().toISOString() };
+        const warns = [];
+        if (!payerOk && d.payer) warns.push(`付款人「${d.payer}」不在成員名單，先當成「${payer}」付`);
+        if (dropped.length) warns.push(`分攤人有對不上的名字：${dropped.join('、')}`);
+        if (rawParts.length && !cleaned.length) warns.push('分攤人都對不上，先當成「全員均分」');
+        if (warns.length) {
+          setAiPending({ expense, warns });   // 有疑慮 → 等使用者確認
+        } else {
+          save([...data, expense]);
+          setAiText('');
+        }
       }
     } catch (e) { console.error(e); setAiMsg(fnErr(e)); }
     setAiBusy(false);
   };
+
+  const confirmPending = () => {
+    if (!aiPending) return;
+    save([...data, aiPending.expense]);
+    setAiPending(null); setAiText(''); setAiMsg('');
+  };
+  const cancelPending = () => setAiPending(null);
 
   const onReceipt = (file) => {
     if (!file || aiBusy) return;
@@ -1191,6 +1216,23 @@ function Split({ data, members, me, save }) {
         </div>
         {aiEnter.armed && <p className="text-xs text-amber2 mt-2">再按一次 Enter 確認送出</p>}
         {aiMsg && <p className="text-xs text-red-600 mt-2">{aiMsg}</p>}
+        {aiPending && (
+          <div className="mt-3 border border-amber2/40 bg-amber2/5 rounded-xl p-3 text-xs">
+            <p className="font-medium mb-1">請確認這筆記帳（AI 可能理解有誤）</p>
+            <p className="mb-1 text-slate2">
+              {aiPending.expense.payer} 付 {aiPending.expense.amount}・{splitLabel(aiPending.expense)}
+            </p>
+            <ul className="list-disc pl-4 mb-2 text-amber2">
+              {aiPending.warns.map((w,i)=><li key={i}>{w}</li>)}
+            </ul>
+            <div className="flex gap-2">
+              <button onClick={confirmPending}
+                className="bg-teal2 text-white px-3 py-1.5 rounded-lg">確認記帳</button>
+              <button onClick={cancelPending}
+                className="border border-line px-3 py-1.5 rounded-lg">取消，改手動</button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-card border border-line rounded-2xl p-4 mb-5 grid grid-cols-2 gap-2">
