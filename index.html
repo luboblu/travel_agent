@@ -50,6 +50,12 @@ tailwind.config = {
   const auth = firebase.auth();
   const db = firebase.firestore();
   const FV = firebase.firestore.FieldValue;
+
+  // ===== Gemini API（免費版，和 NTPU AI 同一套用法）=====
+  // 到 https://aistudio.google.com/apikey 建立免費 key 貼在下面。
+  // 記得到 GCP Console 幫這把 key 加「網站限制」：https://travel-8e1f8.web.app/*
+  const GEMINI_API_KEY = "AIzaSyDJpWT6Zz-GJqT_FEwCQiEv0zZmGgpiIxM";
+  const GEMINI_MODEL = "gemini-2.5-flash";
 </script>
 </head>
 <body>
@@ -72,6 +78,40 @@ const authErr = (code) => ({
   'auth/email-already-in-use':'這個電子郵件已被註冊',
   'auth/weak-password':'密碼至少需要 6 個字元',
 }[code] || '發生錯誤，請稍後再試');
+const rid = () => Date.now() + Math.floor(Math.random()*1e6);
+
+/* ------------------------- Gemini（免費 AI 後端） ------------------------ */
+async function askGemini({ system, user, image, schema }) {
+  const parts = [];
+  if (image) parts.push({ inline_data: { mime_type: image.mimeType, data: image.data } });
+  parts.push({ text: user });
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: schema,
+          temperature: 0.3
+        }
+      })
+    }
+  );
+  if (!res.ok) { const err = new Error('Gemini HTTP ' + res.status); err.status = res.status; throw err; }
+  const j = await res.json();
+  const text = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
+  return JSON.parse(text);
+}
+const fnErr = (e) =>
+  e?.status === 429 ? 'AI 免費額度暫時用完，請過幾分鐘再試' :
+  (e?.status === 400 || e?.status === 403) ? 'API key 無效或未設定（檢查 index.html 的 GEMINI_API_KEY）' :
+  e?.status === 404 ? '模型名稱失效（檢查 index.html 的 GEMINI_MODEL）' :
+  (e instanceof SyntaxError) ? 'AI 回傳格式錯誤，請再試一次' :
+  'AI 服務暫時無法使用，請稍後再試';
 
 /* --------------------------------- icons -------------------------------- */
 const I = {
@@ -373,6 +413,36 @@ function InviteChip({ code }) {
 /* ------------------------------- itinerary ------------------------------ */
 function Itinerary({ data, save }) {
   const [form, setForm] = useState({ day:'Day 1', time:'', title:'', note:'' });
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiErr, setAiErr] = useState('');
+
+  const aiGen = async () => {
+    const p = aiPrompt.trim(); if (!p || aiBusy) return;
+    setAiBusy(true); setAiErr('');
+    try {
+      const out = await askGemini({
+        system: '你是旅遊行程規劃助理。根據使用者描述產生具體、可執行的行程。' +
+          'day 一律用「Day 1」「Day 2」…格式；time 用 24 小時制 HH:MM；' +
+          'title 是地點或活動名稱（15 字內）；note 放交通方式、預估花費或小提醒（可為空字串）。' +
+          '行程要順路、節奏合理，並包含用餐安排。',
+        user: p,
+        schema: { type: 'OBJECT', required: ['items'], properties: { items: {
+          type: 'ARRAY', items: { type: 'OBJECT',
+            required: ['day', 'time', 'title', 'note'],
+            properties: { day: {type:'STRING'}, time: {type:'STRING'}, title: {type:'STRING'}, note: {type:'STRING'} }
+          } } } }
+      });
+      const items = (out?.items || []).map(it => ({
+        id: rid(), day: it.day || 'Day 1', time: it.time || '',
+        title: (it.title || '').trim(), note: it.note || ''
+      })).filter(it => it.title);
+      if (!items.length) { setAiErr('AI 沒有產生行程，換個說法再試一次'); }
+      else { save([...data, ...items].sort(dayThenTime)); setAiPrompt(''); }
+    } catch (e) { console.error(e); setAiErr(fnErr(e)); }
+    setAiBusy(false);
+  };
+
   const add = () => {
     if (!form.title.trim()) return;
     const item = { id: Date.now(), ...form, title: form.title.trim() };
@@ -384,6 +454,21 @@ function Itinerary({ data, save }) {
 
   return (
     <div>
+      <div className="bg-card border border-line rounded-2xl p-4 mb-4">
+        <p className="text-sm font-medium mb-2">✨ AI 排行程</p>
+        <div className="flex gap-2">
+          <input value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)}
+            placeholder="例如：京都三天，喜歡神社和美食，步調悠閒"
+            onKeyDown={e=>e.key==='Enter'&&aiGen()} disabled={aiBusy}
+            className="flex-1 border border-line rounded-xl px-3 py-2 text-sm" />
+          <button onClick={aiGen} disabled={aiBusy}
+            className="bg-teal2 text-white px-4 rounded-xl text-sm shrink-0 disabled:opacity-50">
+            {aiBusy ? '生成中…' : '生成'}
+          </button>
+        </div>
+        {aiErr && <p className="text-xs text-red-600 mt-2">{aiErr}</p>}
+      </div>
+
       <div className="bg-card border border-line rounded-2xl p-4 mb-5 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <input value={form.day} onChange={e=>setForm({...form,day:e.target.value})} placeholder="Day 1"
           className="border border-line rounded-lg px-2.5 py-2 text-sm" />
@@ -461,6 +546,67 @@ function Checklist({ items, save, placeholder }) {
 function Split({ data, members, me, save }) {
   const names = Object.values(members);
   const [form, setForm] = useState({ title:'', amount:'', payer: me.displayName });
+  const [aiText, setAiText] = useState('');
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState('');
+  const fileRef = useRef(null);
+
+  const aiAdd = async () => {
+    const t = aiText.trim(); if (!t || aiBusy) return;
+    setAiBusy(true); setAiMsg('');
+    try {
+      const d = await askGemini({
+        system: '你是記帳解析助理。從使用者的一句話中抽取消費資訊。' +
+          `群組成員：${names.join('、') || '（未知）'}。` +
+          `payer 必須是成員名單中的一個名字；若句子沒說是誰付的，用「${me.displayName}」。` +
+          'title 是消費項目（10 字內）；amount 是數字金額（不含幣別符號）。',
+        user: t,
+        schema: { type: 'OBJECT', required: ['title','amount','payer'],
+          properties: { title: {type:'STRING'}, amount: {type:'NUMBER'}, payer: {type:'STRING'} } }
+      }) || {};
+      const amt = Number(d.amount);
+      if (!d.title || !amt) { setAiMsg('AI 看不懂這筆帳，請描述得更清楚一點'); }
+      else {
+        save([...data, { id: rid(), title: d.title, amount: amt,
+          payer: names.includes(d.payer) ? d.payer : me.displayName,
+          at: new Date().toISOString() }]);
+        setAiText('');
+      }
+    } catch (e) { console.error(e); setAiMsg(fnErr(e)); }
+    setAiBusy(false);
+  };
+
+  const onReceipt = (file) => {
+    if (!file || aiBusy) return;
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { setAiMsg('請選擇 JPG／PNG／WebP 圖片'); return; }
+    if (file.size > 4 * 1024 * 1024) { setAiMsg('圖片太大，請小於 4MB'); return; }
+    const r = new FileReader();
+    r.onload = async () => {
+      setAiBusy(true); setAiMsg('');
+      try {
+        const b64 = String(r.result).split(',')[1];
+        const d = await askGemini({
+          system: '你是收據辨識助理。從收據照片抽取：title（店名或消費摘要，10 字內）、' +
+            'amount（總金額數字）、currency（幣別代碼如 TWD/JPY/USD，看不出來就填 TWD）。' +
+            '金額以收據上的「總計/合計/Total」為準。',
+          user: '請辨識這張收據。',
+          image: { mimeType: file.type, data: b64 },
+          schema: { type: 'OBJECT', required: ['title','amount','currency'],
+            properties: { title: {type:'STRING'}, amount: {type:'NUMBER'}, currency: {type:'STRING'} } }
+        }) || {};
+        const amt = Number(d.amount);
+        if (!amt) { setAiMsg('讀不出收據金額，請改用手動輸入'); }
+        else {
+          save([...data, { id: rid(),
+            title: (d.title || '收據消費') + (d.currency && d.currency !== 'TWD' ? ` (${d.currency})` : ''),
+            amount: amt, payer: me.displayName, at: new Date().toISOString() }]);
+        }
+      } catch (e) { console.error(e); setAiMsg(fnErr(e)); }
+      setAiBusy(false);
+    };
+    r.readAsDataURL(file);
+  };
+
   const add = () => {
     const amt = parseFloat(form.amount);
     if (!form.title.trim() || !amt) return;
@@ -479,6 +625,25 @@ function Split({ data, members, me, save }) {
 
   return (
     <div>
+      <div className="bg-card border border-line rounded-2xl p-4 mb-4">
+        <p className="text-sm font-medium mb-2">✨ AI 記帳</p>
+        <div className="flex gap-2">
+          <input value={aiText} onChange={e=>setAiText(e.target.value)}
+            placeholder="例如：我付了 3000 晚餐請大家"
+            onKeyDown={e=>e.key==='Enter'&&aiAdd()} disabled={aiBusy}
+            className="flex-1 min-w-0 border border-line rounded-xl px-3 py-2 text-sm" />
+          <button onClick={aiAdd} disabled={aiBusy}
+            className="bg-teal2 text-white px-3 rounded-xl text-sm shrink-0 disabled:opacity-50">
+            {aiBusy ? '解析中…' : '記帳'}
+          </button>
+          <button onClick={()=>fileRef.current?.click()} disabled={aiBusy} title="拍收據自動記帳"
+            className="border border-line rounded-xl px-3 text-sm shrink-0 disabled:opacity-50">📷</button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden"
+            onChange={e=>{ onReceipt(e.target.files[0]); e.target.value=''; }} />
+        </div>
+        {aiMsg && <p className="text-xs text-red-600 mt-2">{aiMsg}</p>}
+      </div>
+
       <div className="bg-card border border-line rounded-2xl p-4 mb-5 grid grid-cols-2 gap-2">
         <input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="項目，例如：晚餐"
           className="col-span-2 border border-line rounded-lg px-2.5 py-2 text-sm" />
