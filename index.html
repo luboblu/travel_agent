@@ -545,11 +545,11 @@ function GroupRoom({ user, groupId, onBack }) {
       <header className="border-b border-line bg-card/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center gap-3">
           <button onClick={onBack} className="text-slate2 hover:text-ink"><Icon d={I.back} cls="w-5 h-5"/></button>
-          <div className="min-w-0">
+          <div className="flex-1 min-w-0">
             <h1 className="font-display text-xl truncate">{group.name}</h1>
-            <p className="text-xs text-slate2">{Object.values(members).join('、')}</p>
+            <p className="text-xs text-slate2 truncate" title={Object.values(members).join('、')}>{Object.values(members).join('、')}</p>
           </div>
-          <div className="ml-auto"><InviteChip code={group.code} /></div>
+          <div className="ml-auto shrink-0"><InviteChip code={group.code} /></div>
         </div>
         <div className="max-w-3xl mx-auto px-2 flex overflow-x-auto">
           {TABS.map(([k,l,d])=>(
