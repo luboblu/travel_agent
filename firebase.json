@@ -11,9 +11,11 @@
       "README.md",
       "package.json",
       "package-lock.json",
-      "firestore.rules"
+      "firestore.rules",
+      "functions/**"
     ],
     "rewrites": [
+      { "source": "/api/gemini", "function": { "functionId": "gemini", "region": "us-central1" } },
       { "source": "**", "destination": "/index.html" }
     ],
     "headers": [
@@ -27,5 +29,9 @@
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
   }
 }

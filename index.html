@@ -51,11 +51,9 @@ tailwind.config = {
   const db = firebase.firestore();
   const FV = firebase.firestore.FieldValue;
 
-  // ===== Gemini API（免費版，和 NTPU AI 同一套用法）=====
-  // 到 https://aistudio.google.com/apikey 建立免費 key 貼在下面。
-  // 記得到 GCP Console 幫這把 key 加「網站限制」：https://travel-8e1f8.web.app/*
-  const GEMINI_API_KEY = "AIzaSyDs2IKL3Teqa1pSgtTsQH6LChmlxr9rrp0";
-  const GEMINI_MODEL = "gemini-2.5-flash";
+  // ===== Gemini API =====
+  // 金鑰已改由後端（Cloud Functions）保管，前端不再持有。
+  // AI 呼叫一律走 /api/gemini（見 functions/index.js）。
 </script>
 </head>
 <body>
@@ -129,36 +127,26 @@ const mapExternalUrl = (input) => {
   return /^https?:\/\//.test(s) ? s : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s)}`;
 };
 
-/* ------------------------- Gemini（免費 AI 後端） ------------------------ */
+/* ------------------------- Gemini（後端代理） ------------------------ */
+// 金鑰在後端；這裡只把請求送到 /api/gemini，並帶上登入 token。
 async function askGemini({ system, user, image, schema }) {
-  const parts = [];
-  if (image) parts.push({ inline_data: { mime_type: image.mimeType, data: image.data } });
-  parts.push({ text: user });
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: schema,
-          temperature: 0.3
-        }
-      })
-    }
-  );
+  const token = await auth.currentUser?.getIdToken();
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ system, user, image, schema })
+  });
   if (!res.ok) { const err = new Error('Gemini HTTP ' + res.status); err.status = res.status; throw err; }
-  const j = await res.json();
-  const text = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
-  return JSON.parse(text);
+  return await res.json();
 }
 const fnErr = (e) =>
   e?.status === 429 ? 'AI 免費額度暫時用完，請過幾分鐘再試' :
-  (e?.status === 400 || e?.status === 403) ? 'API key 無效或未設定（檢查 index.html 的 GEMINI_API_KEY）' :
-  e?.status === 404 ? '模型名稱失效（檢查 index.html 的 GEMINI_MODEL）' :
+  e?.status === 401 ? '請先登入再使用 AI 功能' :
+  (e?.status === 400 || e?.status === 403) ? 'AI 服務設定有誤，請稍後再試' :
+  e?.status === 404 ? 'AI 服務端點不存在（後端尚未部署？）' :
   (e instanceof SyntaxError) ? 'AI 回傳格式錯誤，請再試一次' :
   'AI 服務暫時無法使用，請稍後再試';
 
