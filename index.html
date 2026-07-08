@@ -1311,6 +1311,13 @@ function Split({ data, members, me, save }) {
     setAiPending(null); setAiText(''); setAiMsg('');
   };
   const cancelPending = () => setAiPending(null);
+  const setPendingPayer = (payer) => setAiPending(p => p && ({ ...p, expense: { ...p.expense, payer } }));
+  const togglePendingParticipant = (name) => setAiPending(p => {
+    if (!p) return p;
+    const current = cleanParticipants(p.expense.participants);
+    const next = current.includes(name) ? current.filter(n=>n!==name) : [...current, name];
+    return { ...p, expense: { ...p.expense, participants: next.length ? next : current } };
+  });
 
   const onReceipt = (file) => {
     if (!file || aiBusy) return;
@@ -1334,10 +1341,11 @@ function Split({ data, members, me, save }) {
         if (!amt) { setAiMsg('讀不出收據金額，請改用手動輸入'); }
         else {
           const conv = await toTWD(amt, d.currency);
-          save([...data, { id: rid(), title: d.title || '收據消費',
+          const expense = { id: rid(), title: d.title || '收據消費',
             amount: amt, ccy: conv.ccy, amountBase: conv.amountBase, noRate: conv.noRate,
-            payer: me.displayName, participants: names, at: new Date().toISOString() }]);
-          if (conv.noRate) setAiMsg(`已記錄，但「${conv.ccy}」匯率取得失敗，此筆未換算成 TWD`);
+            payer: me.displayName, participants: names, at: new Date().toISOString() };
+          const warns = conv.noRate ? [`「${conv.ccy}」匯率取得失敗，這筆先以原數字計入、未換算成 TWD`] : [];
+          setAiPending({ expense, warns });   // 讓使用者確認/調整付款人與分攤人，不要直接預設全員均分
         }
       } catch (e) { console.error(e); setAiMsg(fnErr(e)); }
       setAiBusy(false);
@@ -1393,15 +1401,33 @@ function Split({ data, members, me, save }) {
         {aiMsg && <p className="text-xs text-red-600 mt-2">{aiMsg}</p>}
         {aiPending && (
           <div className="mt-3 border border-amber2/40 bg-amber2/5 rounded-xl p-3 text-xs">
-            <p className="font-medium mb-1">請確認這筆記帳（AI 可能理解有誤）</p>
-            <p className="mb-1 text-slate2">
-              {aiPending.expense.payer} 付 {fmtOrig(aiPending.expense)}
+            <p className="font-medium mb-1">請確認這筆記帳，可調整付款人／分攤人</p>
+            <p className="mb-2 text-slate2">
+              {fmtOrig(aiPending.expense)}
               {isForeign(aiPending.expense) && !aiPending.expense.noRate ? ` (≈NT$${baseAmt(aiPending.expense).toLocaleString()})` : ''}
-              ・{splitLabel(aiPending.expense)}
             </p>
-            <ul className="list-disc pl-4 mb-2 text-amber2">
-              {aiPending.warns.map((w,i)=><li key={i}>{w}</li>)}
-            </ul>
+            {aiPending.warns.length > 0 && (
+              <ul className="list-disc pl-4 mb-2 text-amber2">
+                {aiPending.warns.map((w,i)=><li key={i}>{w}</li>)}
+              </ul>
+            )}
+            <p className="text-slate2 mb-1">付款人</p>
+            <select value={aiPending.expense.payer} onChange={e=>setPendingPayer(e.target.value)}
+              className="border border-line rounded-lg px-2 py-1.5 mb-2 bg-card">
+              {names.map(n=><option key={n}>{n}</option>)}
+            </select>
+            <p className="text-slate2 mb-1">分攤人</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {names.map(n=>(
+                <label key={n}
+                  className={cx('border rounded-full px-3 py-1.5 cursor-pointer',
+                    cleanParticipants(aiPending.expense.participants).includes(n) ? 'border-teal2 bg-teal2/5 text-teal2' : 'border-line text-slate2')}>
+                  <input type="checkbox" checked={cleanParticipants(aiPending.expense.participants).includes(n)}
+                    onChange={()=>togglePendingParticipant(n)} className="sr-only" />
+                  {n}
+                </label>
+              ))}
+            </div>
             <div className="flex gap-2">
               <button onClick={confirmPending}
                 className="bg-teal2 text-white px-3 py-1.5 rounded-lg">確認記帳</button>
