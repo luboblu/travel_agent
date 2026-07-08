@@ -53,5 +53,14 @@ service cloud.firestore {
         allow update, delete: if false;
       }
     }
+
+    // Google 日曆 OAuth：refresh token / 一次性 state，只有後端 Admin SDK 能讀寫，
+    // client 一律不可讀寫（Admin SDK 會繞過這裡的規則）
+    match /google_tokens/{uid} {
+      allow read, write: if false;
+    }
+    match /oauth_states/{nonce} {
+      allow read, write: if false;
+    }
   }
 }
