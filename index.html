@@ -665,10 +665,13 @@ const rawDayNumber = (day) => {
   const m = String(day || '').trim().match(/day\s*(\d+)/i) || String(day || '').trim().match(/第\s*(\d+)\s*天/);
   return m ? Number(m[1]) : 0;
 };
-const draftStartDate = (prompt, data) => {
+const isRedesignIntent = (p) =>
+  /重新(設計|規劃|安排|排)|重排|整個(重|換)|全部重(新|排)|從頭(排|規劃)?|重新來|redesign|start\s*over|replace\s*all/i.test(p || '');
+const draftStartDate = (prompt, data, redesign) => {
   const explicit = inferTripStartDate(prompt);
   if (explicit) return explicit;
   const isoDays = [...new Set(data.map(i=>i.day))].filter(isIsoDate).sort();
+  if (redesign && isoDays.length) return isoDays[0];
   const requestedDay = rawDayNumber(prompt);
   if (requestedDay && isoDays.length) return isoDays[0];
   if (isoDays.length) return addDays(isoDays[isoDays.length - 1], 1);
@@ -711,7 +714,8 @@ function Itinerary({ data, save }) {
     const p = aiPrompt.trim(); if (!p || aiBusy) return;
     setAiBusy(true); setAiErr('');
     try {
-      const startIso = draftStartDate(p, data);
+      const redesign = isRedesignIntent(p);
+      const startIso = draftStartDate(p, data, redesign);
       // 把目前完整行程餵給 AI，讓它避開重複內容並產生可挑選的草稿
       const currentList = data.map(i => ({
         day: i.day, time: i.time||'', title: i.title||'', note: i.note||'', place: i.map||''
@@ -725,6 +729,9 @@ function Itinerary({ data, save }) {
           '- 「在某天加一個…」→ 只回傳要新增的項目。\n' +
           '- 「把第N天的X改成Y」→ 回傳建議替換的新項目，summary 說明使用者需自行刪除或編輯舊項目。\n' +
           '- 「刪掉/拿掉/不要…」→ 不要回傳舊項目，summary 說明可手動刪除。\n' +
+          '- 「重新設計/重新規劃/重排/全部重新來」→ 使用者要整個行程重新設計，草稿起始日期已經是原行程第一天，' +
+          '請針對從草稿起始日期到原行程最後一天的「每一天」都重新產生完整當天行程(不是只給差異或新增項目)，' +
+          '這些天回傳的項目會直接取代該天原本的所有項目。\n' +
           '- 目前行程是空的 → 依指令產生新草稿。\n' +
           '日期規則：若使用者有指定明確日期，day 用該西元日期 YYYY-MM-DD；若沒有指定日期，' +
           '草稿第一天就是草稿起始日期，第二天是隔天，以此類推。你可以回傳 YYYY-MM-DD，也可以回傳 Day 1/Day 2，前端會轉成真實日期。' +
@@ -741,7 +748,7 @@ function Itinerary({ data, save }) {
           '為了解決上述衝突，你可以微調受影響項目的時間或順序(即使不是使用者直接指定的項目)，' +
           '並在 summary 一併說明你順手調整了什麼。\n' +
           'summary 用一句話說明你做了什麼變更(含為了合理化而做的時間/順序調整)。',
-        user: `目前行程(JSON)：\n${JSON.stringify(currentList)}\n\n草稿起始日期：${startIso}\n\n使用者指令：\n${p}`,
+        user: `目前行程(JSON)：\n${JSON.stringify(currentList)}\n\n草稿起始日期：${startIso}\n\n是否為整個重新設計：${redesign ? '是，請從草稿起始日期起，重新產生涵蓋原行程每一天的完整行程' : '否'}\n\n使用者指令：\n${p}`,
         schema: { type: 'OBJECT', required: ['items'], properties: {
           summary: { type:'STRING', description:'一句話說明這次做了什麼變更' },
           items: {
@@ -758,7 +765,7 @@ function Itinerary({ data, save }) {
         title: (it.title || '').trim(), note: it.note || '', map: (it.place || '').trim()
       })).filter(it => it.title);
       if (!items.length) { setAiErr('AI 沒有產生行程，換個說法再試一次'); }
-      else setAiDraft({ summary: out?.summary || '', items: items.sort(dayThenTime), selected: Object.fromEntries(items.map(i=>[i.id, true])) });
+      else setAiDraft({ summary: out?.summary || '', replace: redesign, items: items.sort(dayThenTime), selected: Object.fromEntries(items.map(i=>[i.id, true])) });
     } catch (e) { console.error(e); setAiErr(fnErr(e)); }
     setAiBusy(false);
   };
@@ -772,7 +779,10 @@ function Itinerary({ data, save }) {
     if (!chosen.length) { setAiErr('請先勾選要加入的草稿項目'); return; }
     const existingIso = [...new Set(data.map(i=>i.day))].filter(isIsoDate).sort();
     const anchorIso = existingIso[0] || todayISO();
-    save(normalizeLegacyDays([...data, ...chosen.map(i=>({ ...i, id: rid() }))], anchorIso).sort(dayThenTime));
+    const normalizedData = normalizeLegacyDays(data, anchorIso);
+    const chosenDays = new Set(chosen.map(i=>i.day));
+    const base = aiDraft?.replace ? normalizedData.filter(i => !chosenDays.has(i.day)) : normalizedData;
+    save([...base, ...chosen.map(i=>({ ...i, id: rid() }))].sort(dayThenTime));
     setAiDraft(null);
     setAiPrompt('');
     setAiErr('');
@@ -825,6 +835,9 @@ function Itinerary({ data, save }) {
               <p className="text-xs text-slate2/70 mt-1">
                 {aiDraft.summary || '勾選想加入的項目，正式行程還不會變動。'}
               </p>
+              {aiDraft.replace && (
+                <p className="text-xs text-amber2 mt-1">加入後將直接取代原本這幾天的行程，不會重複累加。</p>
+              )}
             </div>
             <button onClick={()=>setAiDraft(null)} className="text-slate2 hover:text-ink shrink-0">
               <Icon d={I.x} cls="w-4 h-4"/>
