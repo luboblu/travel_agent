@@ -394,6 +394,20 @@ function GroupsScreen({ user }) {
     } catch (e) { console.error(e); setMsg('加入失敗，請確認邀請碼'); }
   };
 
+  const leave = async (g) => {
+    if (!confirm(`確定要退出「${g.name}」嗎？退出後要重新輸入邀請碼才能再加入。`)) return;
+    try {
+      if ((g.members || []).length <= 1) {
+        await db.collection('groups').doc(g.id).delete();
+      } else {
+        await db.collection('groups').doc(g.id).update({
+          members: FV.arrayRemove(user.uid),
+          [`memberNames.${user.uid}`]: FV.delete()
+        });
+      }
+    } catch (e) { console.error(e); alert('退出失敗，請稍後再試'); }
+  };
+
   const createEnter = useConfirmEnter(create);
   const joinEnter = useConfirmEnter(join);
 
@@ -460,16 +474,20 @@ function GroupsScreen({ user }) {
         ) : (
           <div className="grid gap-3">
             {groups.map(g=>(
-              <button key={g.id} onClick={()=>setActive(g.id)}
-                className="text-left bg-card border border-line rounded-2xl p-5 hover:border-amber2 hover:shadow-sm transition group">
+              <div key={g.id} onClick={()=>setActive(g.id)}
+                className="text-left bg-card border border-line rounded-2xl p-5 hover:border-amber2 hover:shadow-sm transition group cursor-pointer">
                 <div className="flex items-center justify-between">
                   <h3 className="font-display text-xl">{g.name}</h3>
                   <span className="text-xs text-slate2 flex items-center gap-1">
                     <Icon d={I.users} cls="w-4 h-4" />{g.members.length}
                   </span>
                 </div>
-                <p className="text-xs text-slate2 mt-1">邀請碼 <span className="font-mono tracking-widest text-slate2">{g.code}</span></p>
-              </button>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-slate2">邀請碼 <span className="font-mono tracking-widest text-slate2">{g.code}</span></p>
+                  <button onClick={e=>{e.stopPropagation(); leave(g);}}
+                    className="text-xs text-slate2 hover:text-red-500 shrink-0">退出旅程</button>
+                </div>
+              </div>
             ))}
           </div>
         )}
